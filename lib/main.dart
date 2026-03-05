@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'settings_screen.dart' as separate;
 import 'worker_type_screen.dart' as worker_ui;
+import 'notification_screen.dart' as notification_ui;
+import 'booking_screen.dart' as booking_ui;
 
 void main() {
   runApp(const SevixApp());
@@ -455,9 +457,10 @@ class _AppRootState extends State<AppRoot> {
     }
 
     if (_currentScreen == 'notifications') {
-      return NotificationScreen(
-        theme: _theme,
+      return notification_ui.NotificationScreen(
         language: _selectedLanguage,
+        currentTheme: _currentTheme,
+        translateCategory: getCategoryTranslation,
         onBack: () => setState(() => _currentScreen = 'home'),
       );
     }
@@ -472,29 +475,40 @@ class _AppRootState extends State<AppRoot> {
       );
     }
 
-    if (_currentScreen == 'booking' && _selectedWorker != null) {
-      return BookingScreen(
-        theme: _theme,
+    if (_currentScreen == 'booking') {
+      return booking_ui.BookingScreen(
+        initialWorkerCategory:
+            _bookingContext['workerType'] ??
+            _selectedWorker?.category ??
+            'Plumber',
         language: _selectedLanguage,
-        worker: _selectedWorker!,
+        currentTheme: _currentTheme,
+        translateCategory: getCategoryTranslation,
         onBack: () => setState(() {
           _currentScreen = 'home';
           _selectedWorker = null;
+          _bookingContext = {};
         }),
-        onConfirmBooking: () {
-          final name = _selectedWorker?.name ?? '';
+        onPostJobRequest: (jobRequest) {
           setState(() {
             _currentScreen = 'home';
             _selectedWorker = null;
+            _bookingContext = {};
           });
+          // Navigate to bids inbox or show success
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Booking confirmed for $name!')),
+            SnackBar(
+              content: Text(
+                getCategoryTranslation(
+                  'Job posted! Check your notification inbox for bids.',
+                  _selectedLanguage,
+                ),
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
           );
         },
-        onFindWorker: (wType, addr) => setState(() {
-          _bookingContext = {'workerType': wType, 'address': addr};
-          _currentScreen = 'findWorker';
-        }),
       );
     }
 
