@@ -296,7 +296,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     _buildDivider(theme),
                     const SizedBox(height: 20),
                     _buildSocialButtons(theme),
-                    const Spacer(),
+                    const SizedBox(height: 24),
                     _buildFooter(theme),
                   ],
                 ),
