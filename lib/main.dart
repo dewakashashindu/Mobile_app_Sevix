@@ -6,6 +6,7 @@ import 'booking_screen.dart' as booking_ui;
 import 'language_select_screen.dart';
 import 'login_screen.dart';
 import 'signup_screen.dart';
+import 'bookings_management_screen.dart';
 
 void main() {
   runApp(const SevixApp());
@@ -416,9 +417,9 @@ class _AppRootState extends State<AppRoot> {
     }
 
     if (_activeTab == 'bookings') {
-      return BookingsScreen(
+      return BookingsManagementScreen(
         theme: _theme,
-        language: _selectedLanguage,
+        selectedLanguage: _selectedLanguage,
         onBack: () => setState(() => _activeTab = 'home'),
       );
     }
