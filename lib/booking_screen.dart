@@ -1,6 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({
@@ -26,11 +30,16 @@ class BookingScreen extends StatefulWidget {
 }
 
 class _BookingScreenState extends State<BookingScreen> {
+  static const int _maxPhotos = 5;
+
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = TimeOfDay.now();
 
   String _selectedWorkerType = '';
   String _selectedAddress = 'No.13/Basil House, Colombo';
+  double? _selectedLatitude;
+  double? _selectedLongitude;
+  bool _locating = false;
 
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _minBudgetController = TextEditingController();
@@ -144,25 +153,101 @@ class _BookingScreenState extends State<BookingScreen> {
     return '$hour12:$minute $period';
   }
 
+  int? _parseBudget(String input) {
+    final cleaned = input.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleaned.isEmpty) return null;
+    return int.tryParse(cleaned);
+  }
+
+  String _formatCurrency(int amount) {
+    return NumberFormat.currency(
+      locale: 'en_LK',
+      symbol: 'LKR ',
+      decimalDigits: 0,
+    ).format(amount);
+  }
+
+  String? _getBudgetValidationError() {
+    final minBudget = _parseBudget(_minBudgetController.text.trim());
+    final maxBudget = _parseBudget(_maxBudgetController.text.trim());
+
+    if (minBudget == null || maxBudget == null) {
+      return _txt(
+        'Please specify a valid budget range',
+        'කරුණාකර වලංගු අයවැය පරාසයක් සඳහන් කරන්න',
+        'சரியான வரவு செலவுத் திட்ட வரம்பைக் குறிப்பிடவும்',
+      );
+    }
+
+    if (minBudget <= 0 || maxBudget <= 0) {
+      return _txt(
+        'Budget values must be greater than 0',
+        'අයවැය අගයන් 0 ට වඩා වැඩි විය යුතුය',
+        'வரவு செலவுத் தொகைகள் 0 ஐ விட பெரியதாக இருக்க வேண்டும்',
+      );
+    }
+
+    if (minBudget > maxBudget) {
+      return _txt(
+        'Minimum budget cannot be greater than maximum budget',
+        'අවම අයවැය උපරිම අයවැයට වඩා වැඩි විය නොහැක',
+        'குறைந்தபட்ச வரவு செலவு, அதிகபட்சத்தை விட அதிகமாக இருக்க முடியாது',
+      );
+    }
+
+    return null;
+  }
+
   bool _isFormValid() {
+    final budgetError = _getBudgetValidationError();
     return _selectedWorkerType.isNotEmpty &&
         _selectedAddress.isNotEmpty &&
         _descriptionController.text.trim().isNotEmpty &&
         _minBudgetController.text.trim().isNotEmpty &&
-        _maxBudgetController.text.trim().isNotEmpty;
+        _maxBudgetController.text.trim().isNotEmpty &&
+        budgetError == null;
   }
 
   Future<void> _pickPhotos() async {
     try {
       final List<XFile> images = await _imagePicker.pickMultiImage();
       if (images.isNotEmpty) {
-        setState(() {
-          _selectedPhotos.addAll(images);
-          // Limit to 6 photos
-          if (_selectedPhotos.length > 6) {
-            _selectedPhotos.removeRange(6, _selectedPhotos.length);
+        final beforeCount = _selectedPhotos.length;
+        final remainingSlots = _maxPhotos - beforeCount;
+        if (remainingSlots <= 0) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  _txt(
+                    'You can upload up to 5 photos only',
+                    'ඔබට උඩුගත කළ හැක්කේ උපරිම ඡායාරූප 5 ක් පමණි',
+                    'நீங்கள் அதிகபட்சம் 5 புகைப்படங்கள் மட்டுமே பதிவேற்றலாம்',
+                  ),
+                ),
+              ),
+            );
           }
+          return;
+        }
+
+        setState(() {
+          _selectedPhotos.addAll(images.take(remainingSlots));
         });
+
+        if (beforeCount + images.length > _maxPhotos && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                _txt(
+                  'You can upload up to 5 photos only',
+                  'ඔබට උඩුගත කළ හැක්කේ උපරිම ඡායාරූප 5 ක් පමණි',
+                  'நீங்கள் அதிகபட்சம் 5 புகைப்படங்கள் மட்டுமே பதிவேற்றலாம்',
+                ),
+              ),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -257,9 +342,41 @@ class _BookingScreenState extends State<BookingScreen> {
                     'தற்போதைய இடத்தை பயன்படுத்தவும்',
                   ),
                 ),
-                onTap: () {
-                  setState(() => _selectedAddress = 'Current Location');
+                subtitle: _locating
+                    ? Text(
+                        _txt(
+                          'Detecting your location...',
+                          'ඔබගේ ස්ථානය හඳුනා ගනිමින්...',
+                          'உங்கள் இடம் கண்டறியப்படுகிறது...',
+                        ),
+                      )
+                    : null,
+                onTap: _locating
+                    ? null
+                    : () async {
+                        await _useCurrentLocation();
+                        if (!mounted) return;
+                        Navigator.of(this.context).pop();
+                      },
+              ),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFECEFF3),
+                  child: Icon(
+                    Icons.edit_location_alt,
+                    color: Color(0xFF0B1533),
+                  ),
+                ),
+                title: Text(
+                  _txt(
+                    'Enter Location Manually',
+                    'ස්ථානය අතින් ඇතුලත් කරන්න',
+                    'இடத்தை கைமுறையாக உள்ளிடவும்',
+                  ),
+                ),
+                onTap: () async {
                   Navigator.pop(context);
+                  await _openManualLocationDialog();
                 },
               ),
               const SizedBox(height: 8),
@@ -292,6 +409,174 @@ class _BookingScreenState extends State<BookingScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openManualLocationDialog() async {
+    final controller = TextEditingController(
+      text: _selectedAddress == 'Current Location' ? '' : _selectedAddress,
+    );
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          _txt(
+            'Enter Service Location',
+            'සේවා ස්ථානය ඇතුලත් කරන්න',
+            'சேவை இடத்தை உள்ளிடவும்',
+          ),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 2,
+          decoration: InputDecoration(
+            hintText: _txt(
+              'House No, Street, City',
+              'නිවසේ අංකය, වීදිය, නගරය',
+              'வீட்டு எண், தெரு, நகரம்',
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(_txt('Cancel', 'අවලංගු කරන්න', 'ரத்து செய்')),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final value = controller.text.trim();
+              if (value.isEmpty) {
+                return;
+              }
+
+              double? latitude;
+              double? longitude;
+              try {
+                final locations = await locationFromAddress(value);
+                if (locations.isNotEmpty) {
+                  latitude = locations.first.latitude;
+                  longitude = locations.first.longitude;
+                }
+              } catch (_) {
+                // Keep null coordinates when geocoding fails.
+              }
+
+              if (!mounted) return;
+              setState(() {
+                _selectedAddress = value;
+                _selectedLatitude = latitude;
+                _selectedLongitude = longitude;
+              });
+              if (!ctx.mounted) return;
+              Navigator.of(ctx).pop();
+            },
+            child: Text(_txt('Save', 'සුරකින්න', 'சேமி')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _useCurrentLocation() async {
+    setState(() => _locating = true);
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                _txt(
+                  'Location services are disabled. Please enable GPS.',
+                  'ස්ථාන සේවාව අක්‍රියයි. කරුණාකර GPS සක්‍රීය කරන්න.',
+                  'இட சேவைகள் முடக்கப்பட்டுள்ளது. தயவுசெய்து GPS ஐ இயக்கவும்.',
+                ),
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                _txt(
+                  'Location permission is required to use current location.',
+                  'වත්මන් ස්ථානය භාවිත කිරීමට ස්ථාන අවසරය අවශ්‍යයි.',
+                  'தற்போதைய இடத்தை பயன்படுத்த இட அனுமதி தேவை.',
+                ),
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      String resolvedAddress =
+          'Lat ${position.latitude.toStringAsFixed(5)}, Lng ${position.longitude.toStringAsFixed(5)}';
+      try {
+        final placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+        if (placemarks.isNotEmpty) {
+          final p = placemarks.first;
+          final parts = [
+            p.name,
+            p.street,
+            p.subLocality,
+            p.locality,
+            p.administrativeArea,
+          ].where((e) => e != null && e.trim().isNotEmpty).toSet().toList();
+          if (parts.isNotEmpty) {
+            resolvedAddress = parts.join(', ');
+          }
+        }
+      } catch (_) {
+        // Keep coordinate fallback if reverse geocoding is unavailable.
+      }
+
+      if (mounted) {
+        setState(() {
+          _selectedAddress = resolvedAddress;
+          _selectedLatitude = position.latitude;
+          _selectedLongitude = position.longitude;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _txt(
+                'Unable to fetch current location. Try manual location.',
+                'වත්මන් ස්ථානය ලබාගත නොහැක. අතින් ස්ථානය එක් කරන්න.',
+                'தற்போதைய இடத்தை பெற முடியவில்லை. கைமுறை இடத்தை பயன்படுத்தவும்.',
+              ),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _locating = false);
+      }
+    }
   }
 
   Future<void> _openWorkerTypeSheet() async {
@@ -401,14 +686,27 @@ class _BookingScreenState extends State<BookingScreen> {
       return;
     }
 
+    final budgetError = _getBudgetValidationError();
+    if (budgetError != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(budgetError)));
+      return;
+    }
+
+    final minBudget = _parseBudget(_minBudgetController.text.trim())!;
+    final maxBudget = _parseBudget(_maxBudgetController.text.trim())!;
+
     final jobRequest = {
       'workerType': _selectedWorkerType,
       'address': _selectedAddress,
+      'latitude': _selectedLatitude,
+      'longitude': _selectedLongitude,
       'date': _formatDate(_selectedDate),
       'timeSlot': _formatTime(_selectedTime),
       'serviceDescription': _descriptionController.text.trim(),
-      'minBudget': int.tryParse(_minBudgetController.text.trim()) ?? 0,
-      'maxBudget': int.tryParse(_maxBudgetController.text.trim()) ?? 0,
+      'minBudget': minBudget,
+      'maxBudget': maxBudget,
       'photos': _selectedPhotos.map((photo) => photo.path).toList(),
       'timestamp': DateTime.now().toIso8601String(),
     };
@@ -536,6 +834,9 @@ class _BookingScreenState extends State<BookingScreen> {
                                 controller: _minBudgetController,
                                 keyboardType: TextInputType.number,
                                 onChanged: (_) => setState(() {}),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
                                 decoration: InputDecoration(
                                   labelText: _txt(
                                     'Min (Rs.)',
@@ -563,6 +864,9 @@ class _BookingScreenState extends State<BookingScreen> {
                                 controller: _maxBudgetController,
                                 keyboardType: TextInputType.number,
                                 onChanged: (_) => setState(() {}),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
                                 decoration: InputDecoration(
                                   labelText: _txt(
                                     'Max (Rs.)',
@@ -585,6 +889,48 @@ class _BookingScreenState extends State<BookingScreen> {
                               ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 10),
+                        Builder(
+                          builder: (context) {
+                            final minBudget = _parseBudget(
+                              _minBudgetController.text.trim(),
+                            );
+                            final maxBudget = _parseBudget(
+                              _maxBudgetController.text.trim(),
+                            );
+                            final error = _getBudgetValidationError();
+
+                            if (error != null &&
+                                (_minBudgetController.text.isNotEmpty ||
+                                    _maxBudgetController.text.isNotEmpty)) {
+                              return Text(
+                                error,
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              );
+                            }
+
+                            if (minBudget != null && maxBudget != null) {
+                              return Text(
+                                _txt(
+                                  'Selected range: ${_formatCurrency(minBudget)} - ${_formatCurrency(maxBudget)}',
+                                  'තෝරාගත් පරාසය: ${_formatCurrency(minBudget)} - ${_formatCurrency(maxBudget)}',
+                                  'தேர்ந்தெடுக்கப்பட்ட வரம்பு: ${_formatCurrency(minBudget)} - ${_formatCurrency(maxBudget)}',
+                                ),
+                                style: TextStyle(
+                                  color: _theme.textSecondary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              );
+                            }
+
+                            return const SizedBox.shrink();
+                          },
                         ),
                       ],
                     ),
@@ -613,7 +959,7 @@ class _BookingScreenState extends State<BookingScreen> {
                             ),
                             const Spacer(),
                             Text(
-                              '${_selectedPhotos.length}/6',
+                              '${_selectedPhotos.length}/$_maxPhotos',
                               style: TextStyle(
                                 color: _theme.textSecondary,
                                 fontSize: 12,
@@ -662,7 +1008,7 @@ class _BookingScreenState extends State<BookingScreen> {
                                 ],
                               );
                             }),
-                            if (_selectedPhotos.length < 6)
+                            if (_selectedPhotos.length < _maxPhotos)
                               InkWell(
                                 onTap: _pickPhotos,
                                 borderRadius: BorderRadius.circular(8),

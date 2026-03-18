@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'otp_screen.dart';
-import 'services/auth_manager.dart';
 
 /// Login screen extracted from main.dart and redesigned
 /// to match the provided React Native implementation.
@@ -81,7 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return values[lang] ?? values['en'] ?? key;
   }
 
-  Future<void> _handleLogin() async {
+  void _handleLogin() {
     final theme = widget.theme;
     final email = _emailCtrl.text.trim();
     final password = _passCtrl.text;
@@ -97,38 +95,12 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     setState(() => _loading = true);
-    final result = await AuthManager.instance.login(
-      email: email,
-      password: password,
-    );
-
-    if (!mounted) return;
-    setState(() => _loading = false);
-
-    if (!result.success) {
-      _showSnack(theme, result.message);
-      return;
-    }
-
-    if (result.requiresOtp && result.otpSessionId != null) {
-      _showSnack(theme, result.message, success: true);
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => OTPScreen(
-            theme: widget.theme,
-            selectedLanguage: widget.selectedLanguage,
-            email: email,
-            otpSessionId: result.otpSessionId,
-            onOTPVerified: widget.onLoginSuccess,
-          ),
-        ),
-      );
-      return;
-    }
-
-    _showSnack(theme, result.message, success: true);
-    widget.onLoginSuccess();
+    Future.delayed(const Duration(milliseconds: 900), () {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      _showSnack(theme, 'Login successful!', success: true);
+      widget.onLoginSuccess();
+    });
   }
 
   void _showSnack(dynamic theme, String message, {bool success = false}) {

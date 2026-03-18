@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'main.dart' show AppTheme;
-import 'services/auth_manager.dart';
 
 class OTPScreen extends StatefulWidget {
   final AppTheme theme;
@@ -10,7 +9,6 @@ class OTPScreen extends StatefulWidget {
   final VoidCallback? onResendOTP;
   final String? phoneNumber;
   final String? email;
-  final String? otpSessionId;
 
   const OTPScreen({
     super.key,
@@ -20,7 +18,6 @@ class OTPScreen extends StatefulWidget {
     this.onResendOTP,
     this.phoneNumber,
     this.email,
-    this.otpSessionId,
   });
 
   @override
@@ -99,56 +96,18 @@ class _OTPScreenState extends State<OTPScreen> {
 
     setState(() => _isLoading = true);
 
-    if (widget.otpSessionId != null) {
-      final result = await AuthManager.instance.verifyOtp(
-        otpSessionId: widget.otpSessionId!,
-        otp: _otpCtrl.text,
-      );
-
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-
-      if (!result.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.message), backgroundColor: Colors.red),
-        );
-        return;
-      }
-
-      widget.onOTPVerified();
-      return;
-    }
-
+    // Simulate OTP verification
     await Future.delayed(const Duration(seconds: 1));
-    if (!mounted) return;
+
     setState(() => _isLoading = false);
-    widget.onOTPVerified();
+
+    if (mounted) {
+      widget.onOTPVerified();
+    }
   }
 
-  Future<void> _handleResend() async {
-    if (_resendTimer != 0) return;
-
-    if (widget.otpSessionId != null) {
-      final result = await AuthManager.instance.resendOtp(
-        otpSessionId: widget.otpSessionId!,
-      );
-      if (!mounted) return;
-
-      if (!result.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.message), backgroundColor: Colors.red),
-        );
-        return;
-      }
-
-      _startResendTimer();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message), backgroundColor: Colors.green),
-      );
-      return;
-    }
-
-    if (widget.onResendOTP != null) {
+  void _handleResend() {
+    if (_resendTimer == 0 && widget.onResendOTP != null) {
       widget.onResendOTP!();
       _startResendTimer();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -192,7 +151,7 @@ class _OTPScreenState extends State<OTPScreen> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
+                  color: Colors.black.withOpacity(0.1),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -205,7 +164,7 @@ class _OTPScreenState extends State<OTPScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0B1533).withValues(alpha: 0.1),
+                    color: const Color(0xFF0B1533).withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -263,7 +222,7 @@ class _OTPScreenState extends State<OTPScreen> {
                   decoration: InputDecoration(
                     hintText: '------',
                     hintStyle: TextStyle(
-                      color: t.textSecondary.withValues(alpha: 0.5),
+                      color: t.textSecondary.withOpacity(0.5),
                       letterSpacing: 16,
                     ),
                     counterText: '',
@@ -325,10 +284,7 @@ class _OTPScreenState extends State<OTPScreen> {
 
                 // Resend OTP Button
                 TextButton(
-                  onPressed:
-                      _resendTimer == 0 &&
-                          (widget.onResendOTP != null ||
-                              widget.otpSessionId != null)
+                  onPressed: _resendTimer == 0 && widget.onResendOTP != null
                       ? _handleResend
                       : null,
                   child: Text(

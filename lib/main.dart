@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:sevix/l10n/app_localizations.dart';
-import 'services/auth_manager.dart';
 import 'settings_screen.dart' as separate;
 import 'worker_type_screen.dart' as worker_ui;
 import 'notification_screen.dart' as notification_ui;
@@ -332,10 +331,8 @@ class AppRoot extends StatefulWidget {
 }
 
 class _AppRootState extends State<AppRoot> {
-  bool _authLoading = true;
   bool _isLoggedIn = false;
   bool _showSignup = false;
-  bool _biometricEnabled = false;
   String _selectedLanguage = '';
   String _currentTheme = 'light';
 
@@ -367,43 +364,6 @@ class _AppRootState extends State<AppRoot> {
   AppTheme get _theme =>
       _currentTheme == 'dark' ? AppTheme.dark : AppTheme.light;
   AppTranslations get _t => AppTranslations.forLang(_selectedLanguage);
-
-  @override
-  void initState() {
-    super.initState();
-    _bootstrapAuth();
-  }
-
-  Future<void> _bootstrapAuth() async {
-    final biometricEnabled = await AuthManager.instance.getBiometricEnabled();
-    final restored = await AuthManager.instance.restoreSession(
-      requireBiometric: biometricEnabled,
-    );
-
-    if (!mounted) return;
-    setState(() {
-      _biometricEnabled = biometricEnabled;
-      _isLoggedIn = restored;
-      _authLoading = false;
-    });
-  }
-
-  Future<void> _toggleBiometric(bool enabled) async {
-    final activated = await AuthManager.instance.setBiometricEnabled(enabled);
-    if (!mounted) return;
-
-    setState(() => _biometricEnabled = activated);
-
-    if (enabled && !activated) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Biometric authentication is not available on this device.',
-          ),
-        ),
-      );
-    }
-  }
 
   Widget _withSelectedLocale(Widget child) {
     if (_selectedLanguage.isEmpty) {
@@ -450,10 +410,6 @@ class _AppRootState extends State<AppRoot> {
 
   @override
   Widget build(BuildContext context) {
-    if (_authLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
     if (_selectedLanguage.isEmpty) {
       return LanguageSelectScreen(
         onSelect: (lang) => setState(() => _selectedLanguage = lang),
@@ -517,19 +473,15 @@ class _AppRootState extends State<AppRoot> {
         separate.SettingsScreen(
           language: _selectedLanguage,
           currentTheme: _currentTheme,
-          biometricEnabled: _biometricEnabled,
           onBack: () => setState(() => _activeTab = 'home'),
           onLanguageChange: (lang) => setState(() => _selectedLanguage = lang),
           onThemeChange: (th) => setState(() => _currentTheme = th),
-          onBiometricToggle: _toggleBiometric,
           onLogout: () => setState(() {
-            AuthManager.instance.logout();
             _isLoggedIn = false;
             _activeTab = 'home';
             _currentScreen = 'home';
           }),
           onDeleteAccount: () => setState(() {
-            AuthManager.instance.logout();
             _isLoggedIn = false;
             _activeTab = 'home';
             _currentScreen = 'home';
