@@ -1,0 +1,65 @@
+{
+  "@@locale": "ta",
+  "bookings": "முன்பதிவுகள்",
+  "bids": "ஏலங்கள்",
+  "accepted": "ஏற்றுக்கொள்ளப்பட்டது",
+  "history": "வரலாறு",
+  "noBids": "இன்னும் செயலில் உள்ள ஏலங்கள் இல்லை",
+  "noBidsDesc": "தொழிலாளர்களிடமிருந்து ஏலங்களைப் பெற வேலை கோரிக்கையை இடுகையிடவும்",
+  "accept": "ஏற்றுக்கொள்",
+  "decline": "மறுக்கிறேன்",
+  "jobs": "வேலைகள்",
+  "estimatedTime": "மதிப்பிடப்பட்ட நேரம்",
+  "bidAcceptedWorkerWillContact": "ஏலம் ஏற்றுக்கொள்ளப்பட்டது! பணியாளர் விரைவில் உங்களை தொடர்பு கொள்வார்.",
+  "bidDeclined": "ஏலம் நிராகரிக்கப்பட்டது",
+  "bidAmount": "ஏலத் தொகை",
+  "amount": "தொகை",
+  "noAccepted": "ஏற்றுக்கொள்ளப்பட்ட ஏலங்கள் இல்லை",
+  "noAcceptedDesc": "நீங்கள் ஏற்றுக்கொள்ளும் ஏலங்கள் வேலை முடியும் வரை இங்கே தோன்றும்",
+  "inProgress": "செயலில்",
+  "scheduled": "திட்டமிடப்பட்டது",
+  "contactWorker": "பணியாளரை தொடர்பு கொள்ளுங்கள்",
+  "markComplete": "முடிந்ததாக குறிக்கவும்",
+  "acceptedOn": "ஏற்றுக்கொள்ளப்பட்ட தேதி",
+  "scheduledFor": "திட்டமிடப்பட்ட தேதி",
+  "workCompletedTitle": "வேலை முடிந்ததா?",
+  "workCompletedQuestion": "இந்த வேலை வெற்றிகரமாக முடிந்ததை உறுதிப்படுத்தவா?",
+  "cancel": "ரத்து செய்",
+  "confirm": "உறுதிப்படுத்து",
+  "bookingCompletedAddedHistory": "முன்பதிவு முடிந்தது! வரலாற்றில் சேர்க்கப்பட்டது.",
+  "calling": "அழைக்கிறது: {phone}",
+  "@calling": {
+    "placeholders": {
+      "phone": {}
+    }
+  },
+  "noHistory": "முன்பதிவு வரலாறு இல்லை",
+  "noHistoryDesc": "உங்கள் நிறைவு செய்யப்பட்ட மற்றும் ரத்து செய்யப்பட்ட முன்பதிவுகள் இங்கே தோன்றும்",
+  "completed": "முடிந்தது",
+  "cancelled": "ரத்து செய்யப்பட்டது",
+  "totalAmount": "மொத்த தொகை",
+  "minutesAgo": "{count}m முன்",
+  "@minutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hoursAgo": "{count}h முன்",
+  "@hoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "daysAgo": "{count}d முன்",
+  "@daysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
+}

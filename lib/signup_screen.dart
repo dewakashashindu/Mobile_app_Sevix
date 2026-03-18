@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'main.dart' show AppTheme;
 import 'otp_screen.dart';
+import 'services/auth_manager.dart';
 
 class SignupScreen extends StatefulWidget {
   final AppTheme theme;
@@ -110,7 +111,7 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _hasSpecialChar(String password) =>
       password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
 
-  void _handleSignUp() async {
+  Future<void> _handleSignUp() async {
     setState(() {
       _emailError = null;
       _phoneError = null;
@@ -194,44 +195,47 @@ class _SignupScreenState extends State<SignupScreen> {
 
     setState(() => _isLoading = true);
 
-    // Simulate signup API call
-    await Future.delayed(const Duration(seconds: 2));
+    final result = await AuthManager.instance.register(
+      fullName: _nameCtrl.text.trim(),
+      email: _emailCtrl.text.trim(),
+      phone: '$_selectedCountryCode${_phoneCtrl.text.trim()}',
+      password: _passCtrl.text,
+    );
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
-    // Navigate to OTP screen
-    if (mounted) {
-      _navigateToOTPScreen();
+    if (!result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message), backgroundColor: Colors.red),
+      );
+      return;
     }
+
+    if (result.requiresOtp && result.otpSessionId != null) {
+      _navigateToOTPScreen(result.otpSessionId!);
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result.message), backgroundColor: Colors.green),
+    );
+    widget.onSignUpSuccess();
   }
 
-  void _navigateToOTPScreen() {
+  void _navigateToOTPScreen(String otpSessionId) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => OTPScreen(
           theme: widget.theme,
           selectedLanguage: widget.selectedLanguage,
-          phoneNumber: '${_selectedCountryCode}${_phoneCtrl.text}',
+          phoneNumber: '$_selectedCountryCode${_phoneCtrl.text}',
           email: _emailCtrl.text,
+          otpSessionId: otpSessionId,
           onOTPVerified: () {
             Navigator.pop(context);
             widget.onSignUpSuccess();
-          },
-          onResendOTP: () {
-            // Simulate resending OTP
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  widget.selectedLanguage == 'si'
-                      ? 'OTP නැවත යවමින්...'
-                      : widget.selectedLanguage == 'ta'
-                      ? 'OTP மீண்டும் அனுப்புகிறது...'
-                      : 'Resending OTP...',
-                ),
-                backgroundColor: Colors.blue,
-              ),
-            );
           },
         ),
       ),

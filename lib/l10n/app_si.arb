@@ -1,0 +1,65 @@
+{
+  "@@locale": "si",
+  "bookings": "වෙන්කිරීම්",
+  "bids": "ලංසු",
+  "accepted": "පිළිගත්",
+  "history": "ඉතිහාසය",
+  "noBids": "තවමත් ක්‍රියාකාරී ලංසු නැත",
+  "noBidsDesc": "සේවකයන්ගෙන් ලංසු ලැබීම ආරම්භ කිරීමට රැකියා ඉල්ලීමක් පළ කරන්න",
+  "accept": "පිළිගන්න",
+  "decline": "ප්‍රතික්ෂේප කරන්න",
+  "jobs": "රැකියා",
+  "estimatedTime": "ඇස්තමේන්තුගත කාලය",
+  "bidAcceptedWorkerWillContact": "ලංසුව පිළිගන්නා ලදී! සේවකයා ඔබව ඉක්මනින් සම්බන්ධ කර ගනු ඇත.",
+  "bidDeclined": "ලංසුව ප්‍රතික්ෂේප කරන ලදී",
+  "bidAmount": "ලංසු මුදල",
+  "amount": "මුදල",
+  "noAccepted": "පිළිගත් ලංසු නැත",
+  "noAcceptedDesc": "ඔබ පිළිගන්නා ලංසු වැඩ අවසන් වන තුරු මෙහි පෙන්වයි",
+  "inProgress": "ප්‍රගතියෙන්",
+  "scheduled": "සැලසුම් කළා",
+  "contactWorker": "සේවකයා අමතන්න",
+  "markComplete": "සම්පූර්ණ ලෙස සලකුණු කරන්න",
+  "acceptedOn": "පිළිගත් දිනය",
+  "scheduledFor": "සැලසුම් කළ දිනය",
+  "workCompletedTitle": "වැඩ අවසන්ද?",
+  "workCompletedQuestion": "මෙම වැඩ සාර්ථකව අවසන් වී ඇති බව තහවුරු කරන්නද?",
+  "cancel": "අවලංගු කරන්න",
+  "confirm": "තහවුරු කරන්න",
+  "bookingCompletedAddedHistory": "වෙන්කිරීම සම්පූර්ණ කළා! ඉතිහාසයට එකතු කරන ලදි.",
+  "calling": "අමතමින්: {phone}",
+  "@calling": {
+    "placeholders": {
+      "phone": {}
+    }
+  },
+  "noHistory": "වෙන්කිරීම් ඉතිහාසයක් නැත",
+  "noHistoryDesc": "ඔබගේ සම්පූර්ණ කළ සහ අවලංගු කළ වෙන්කිරීම් මෙහි පෙන්වයි",
+  "completed": "සම්පූර්ණයි",
+  "cancelled": "අවලංගු කළා",
+  "totalAmount": "මුළු මුදල",
+  "minutesAgo": "{count}m පෙර",
+  "@minutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hoursAgo": "{count}h පෙර",
+  "@hoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "daysAgo": "{count}d පෙර",
+  "@daysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'main.dart' show AppTheme;
+import 'package:sevix/l10n/app_localizations.dart';
 
 class BookingsManagementScreen extends StatefulWidget {
   final AppTheme theme;
@@ -35,81 +36,20 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
   }
 
   String _getTranslation(String key) {
-    final translations = {
-      'bids': {'en': 'Bids', 'si': 'ලංසු', 'ta': 'ஏலங்கள்'},
-      'accepted': {
-        'en': 'Accepted',
-        'si': 'පිළිගත්',
-        'ta': 'ஏற்றுக்கொள்ளப்பட்டது',
-      },
-      'history': {'en': 'History', 'si': 'ඉතිහාසය', 'ta': 'வரலாறு'},
-      'noBids': {
-        'en': 'No active bids yet',
-        'si': 'තවමත් ක්‍රියාකාරී ලංසු නැත',
-        'ta': 'இன்னும் செயலில் உள்ள ஏலங்கள் இல்லை',
-      },
-      'noBidsDesc': {
-        'en': 'Post a job request to start receiving bids from workers',
-        'si': 'සේවකයන්ගෙන් ලංසු ලැබීම ආරම්භ කිරීමට රැකියා ඉල්ලීමක් පළ කරන්න',
-        'ta':
-            'தொழிலாளர்களிடமிருந்து ஏலங்களைப் பெற வேலை கோரிக்கையை இடுகையிடவும்',
-      },
-      'noHistory': {
-        'en': 'No booking history',
-        'si': 'වෙන්කිරීම් ඉතිහාසයක් නැත',
-        'ta': 'முன்பதிவு வரலாறு இல்லை',
-      },
-      'noHistoryDesc': {
-        'en': 'Your completed and cancelled bookings will appear here',
-        'si': 'ඔබගේ සම්පූර්ණ කළ සහ අවලංගු කළ වෙන්කිරීම් මෙහි පෙන්වයි',
-        'ta':
-            'உங்கள் நிறைவு செய்யப்பட்ட மற்றும் ரத்து செய்யப்பட்ட முன்பதிவுகள் இங்கே தோன்றும்',
-      },
-      'accept': {'en': 'Accept', 'si': 'පිළිගන්න', 'ta': 'ஏற்றுக்கொள்'},
-      'decline': {
-        'en': 'Decline',
-        'si': 'ප්‍රතික්ෂේප කරන්න',
-        'ta': 'மறுக்கிறேன்',
-      },
-      'viewDetails': {
-        'en': 'View Details',
-        'si': 'විස්තර බලන්න',
-        'ta': 'விவரங்களைக் காண்க',
-      },
-      'completed': {'en': 'Completed', 'si': 'සම්පූර්ණයි', 'ta': 'முடிந்தது'},
-      'cancelled': {
-        'en': 'Cancelled',
-        'si': 'අවලංගු කළා',
-        'ta': 'ரத்து செய்யப்பட்டது',
-      },
-      'pending': {'en': 'Pending', 'si': 'පොරොත්තුවෙන්', 'ta': 'நிலுவையில்'},
-      'bookings': {'en': 'Bookings', 'si': 'වෙන්කිරීම්', 'ta': 'முன்பதிவுகள்'},
-      'noAccepted': {
-        'en': 'No accepted bids',
-        'si': 'පිළිගත් ලංසු නැත',
-        'ta': 'ஏற்றுக்கொள்ளப்பட்ட ஏலங்கள் இல்லை',
-      },
-      'noAcceptedDesc': {
-        'en': 'Bids you accept will appear here until work is completed',
-        'si': 'ඔබ පිළිගන්නා ලංසු වැඩ අවසන් වන තුරු මෙහි පෙන්වයි',
-        'ta':
-            'நீங்கள் ஏற்றுக்கொள்ளும் ஏலங்கள் வேலை முடியும் வரை இங்கே தோன்றும்',
-      },
-      'inProgress': {'en': 'In Progress', 'si': 'ප්‍රගතිය', 'ta': 'செயலில்'},
-      'contactWorker': {
-        'en': 'Contact Worker',
-        'si': 'සේවකයා අමතන්න',
-        'ta': 'பணியாளரை தொடர்பு கொள்ளுங்கள்',
-      },
-      'markComplete': {
-        'en': 'Mark Complete',
-        'si': 'සම්පූර්ණ ලෙස සලකුණු කරන්න',
-        'ta': 'முடிந்ததாக குறிக்கவும்',
-      },
-    };
-    return translations[key]?[widget.selectedLanguage] ??
-        translations[key]?['en'] ??
-        key;
+    final l10n = AppLocalizations.of(context);
+
+    switch (key) {
+      case 'bids':
+        return l10n.bids;
+      case 'accepted':
+        return l10n.accepted;
+      case 'history':
+        return l10n.history;
+      case 'bookings':
+        return l10n.bookings;
+      default:
+        return key;
+    }
   }
 
   @override
@@ -227,34 +167,26 @@ class _BidsTabState extends State<_BidsTab> {
   ];
 
   String _getTranslation(String key) {
-    final translations = {
-      'noBids': {
-        'en': 'No active bids yet',
-        'si': 'තවමත් ක්‍රියාකාරී ලංසු නැත',
-        'ta': 'இன்னும் செயலில் உள்ள ஏலங்கள் இல்லை',
-      },
-      'noBidsDesc': {
-        'en': 'Post a job request to start receiving bids from workers',
-        'si': 'සේවකයන්ගෙන් ලංසු ලැබීම ආරම්භ කිරීමට රැකියා ඉල්ලීමක් පළ කරන්න',
-        'ta':
-            'தொழிலாளர்களிடமிருந்து ஏலங்களைப் பெற வேலை கோரிக்கையை இடுகையிடவும்',
-      },
-      'accept': {'en': 'Accept', 'si': 'පිළිගන්න', 'ta': 'ஏற்றுக்கொள்'},
-      'decline': {
-        'en': 'Decline',
-        'si': 'ප්‍රතික්ෂේප කරන්න',
-        'ta': 'மறுக்கிறேன்',
-      },
-      'jobs': {'en': 'jobs', 'si': 'රැකියා', 'ta': 'வேலைகள்'},
-      'estimatedTime': {
-        'en': 'Estimated time',
-        'si': 'ඇස්තමේන්තුගත කාලය',
-        'ta': 'மதிப்பிடப்பட்ட நேரம்',
-      },
-    };
-    return translations[key]?[widget.language] ??
-        translations[key]?['en'] ??
-        key;
+    final l10n = AppLocalizations.of(context);
+
+    switch (key) {
+      case 'noBids':
+        return l10n.noBids;
+      case 'noBidsDesc':
+        return l10n.noBidsDesc;
+      case 'accept':
+        return l10n.accept;
+      case 'decline':
+        return l10n.decline;
+      case 'jobs':
+        return l10n.jobs;
+      case 'estimatedTime':
+        return l10n.estimatedTime;
+      case 'bidAmount':
+        return l10n.bidAmount;
+      default:
+        return key;
+    }
   }
 
   void _acceptBid(_Bid bid) {
@@ -268,11 +200,7 @@ class _BidsTabState extends State<_BidsTab> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          widget.language == 'si'
-              ? 'ලංසුව පිළිගන්නා ලදී! සේවකයා ඔබව ඉක්මනින් සම්බන්ධ කර ගනු ඇත.'
-              : widget.language == 'ta'
-              ? 'ஏலம் ஏற்றுக்கொள்ளப்பட்டது! பணியாளர் விரைவில் உங்களை தொடர்பு கொள்வார்.'
-              : 'Bid accepted! Worker will contact you soon.',
+          AppLocalizations.of(context).bidAcceptedWorkerWillContact,
         ),
         backgroundColor: Colors.green,
       ),
@@ -285,15 +213,7 @@ class _BidsTabState extends State<_BidsTab> {
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          widget.language == 'si'
-              ? 'ලංසුව ප්‍රතික්ෂේප කරන ලදී'
-              : widget.language == 'ta'
-              ? 'ஏலம் நிராகரிக்கப்பட்டது'
-              : 'Bid declined',
-        ),
-      ),
+      SnackBar(content: Text(AppLocalizations.of(context).bidDeclined)),
     );
   }
 
@@ -302,11 +222,11 @@ class _BidsTabState extends State<_BidsTab> {
     final difference = now.difference(timestamp);
 
     if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
+      return AppLocalizations.of(context).minutesAgo(difference.inMinutes);
     } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
+      return AppLocalizations.of(context).hoursAgo(difference.inHours);
     } else {
-      return '${difference.inDays}d ago';
+      return AppLocalizations.of(context).daysAgo(difference.inDays);
     }
   }
 
@@ -503,7 +423,7 @@ class _BidCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Bid Amount',
+                        getTranslation('bidAmount'),
                         style: TextStyle(
                           fontSize: 14,
                           color: theme.textSecondary,
@@ -651,48 +571,40 @@ class _AcceptedBidsTabState extends State<_AcceptedBidsTab> {
   ];
 
   String _getTranslation(String key) {
-    final translations = {
-      'noAccepted': {
-        'en': 'No accepted bids',
-        'si': 'පිළිගත් ලංසු නැත',
-        'ta': 'ஏற்றுக்கொள்ளப்பட்ட ஏலங்கள் இல்லை',
-      },
-      'noAcceptedDesc': {
-        'en': 'Bids you accept will appear here until work is completed',
-        'si': 'ඔබ පිළිගන්නා ලංසු වැඩ අවසන් වන තුරු මෙහි පෙන්වයි',
-        'ta':
-            'நீங்கள் ஏற்றுக்கொள்ளும் ஏலங்கள் வேலை முடியும் வரை இங்கே தோன்றும்',
-      },
-      'inProgress': {'en': 'In Progress', 'si': 'ප්‍රගතියෙන්', 'ta': 'செயலில்'},
-      'scheduled': {
-        'en': 'Scheduled',
-        'si': 'සැලසුම් කළා',
-        'ta': 'திட்டமிடப்பட்டது',
-      },
-      'contactWorker': {
-        'en': 'Contact Worker',
-        'si': 'සේවකයා අමතන්න',
-        'ta': 'பணியாளரை தொடர்பு கொள்ளுங்கள்',
-      },
-      'markComplete': {
-        'en': 'Mark Complete',
-        'si': 'සම්පූර්ණ ලෙස සලකුණු කරන්න',
-        'ta': 'முடிந்ததாக குறிக்கவும்',
-      },
-      'acceptedOn': {
-        'en': 'Accepted on',
-        'si': 'පිළිගත් දිනය',
-        'ta': 'ஏற்றுக்கொள்ளப்பட்ட தேதி',
-      },
-      'scheduledFor': {
-        'en': 'Scheduled for',
-        'si': 'සැලසුම් කළ දිනය',
-        'ta': 'திட்டமிடப்பட்ட தேதி',
-      },
-    };
-    return translations[key]?[widget.language] ??
-        translations[key]?['en'] ??
-        key;
+    final l10n = AppLocalizations.of(context);
+
+    switch (key) {
+      case 'noAccepted':
+        return l10n.noAccepted;
+      case 'noAcceptedDesc':
+        return l10n.noAcceptedDesc;
+      case 'inProgress':
+        return l10n.inProgress;
+      case 'scheduled':
+        return l10n.scheduled;
+      case 'contactWorker':
+        return l10n.contactWorker;
+      case 'markComplete':
+        return l10n.markComplete;
+      case 'acceptedOn':
+        return l10n.acceptedOn;
+      case 'scheduledFor':
+        return l10n.scheduledFor;
+      case 'cancel':
+        return l10n.cancel;
+      case 'confirm':
+        return l10n.confirm;
+      case 'workCompletedTitle':
+        return l10n.workCompletedTitle;
+      case 'workCompletedQuestion':
+        return l10n.workCompletedQuestion;
+      case 'bookingCompletedAddedHistory':
+        return l10n.bookingCompletedAddedHistory;
+      case 'amount':
+        return l10n.amount;
+      default:
+        return key;
+    }
   }
 
   void _markComplete(_AcceptedBid bid) {
@@ -701,31 +613,17 @@ class _AcceptedBidsTabState extends State<_AcceptedBidsTab> {
       builder: (ctx) => AlertDialog(
         backgroundColor: widget.theme.cardBackground,
         title: Text(
-          widget.language == 'si'
-              ? 'වැඩ අවසන්ද?'
-              : widget.language == 'ta'
-              ? 'வேலை முடிந்ததா?'
-              : 'Work Completed?',
+          _getTranslation('workCompletedTitle'),
           style: TextStyle(color: widget.theme.textPrimary),
         ),
         content: Text(
-          widget.language == 'si'
-              ? 'මෙම වැඩ සාර්ථකව අවසන් වී ඇති බව තහවුරු කරන්නද?'
-              : widget.language == 'ta'
-              ? 'இந்த வேலை வெற்றிகரமாக முடிந்ததை உறுதிப்படுத்தவா?'
-              : 'Confirm that this work has been completed successfully?',
+          _getTranslation('workCompletedQuestion'),
           style: TextStyle(color: widget.theme.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              widget.language == 'si'
-                  ? 'අවලංගු කරන්න'
-                  : widget.language == 'ta'
-                  ? 'ரத்து செய்'
-                  : 'Cancel',
-            ),
+            child: Text(_getTranslation('cancel')),
           ),
           ElevatedButton(
             onPressed: () {
@@ -736,11 +634,7 @@ class _AcceptedBidsTabState extends State<_AcceptedBidsTab> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    widget.language == 'si'
-                        ? 'වෙන්කිරීම සම්පූර්ණ කළා! ඉතිහාසයට එකතු කරන ලදි.'
-                        : widget.language == 'ta'
-                        ? 'முன்பதிவு முடிந்தது! வரலாற்றில் சேர்க்கப்பட்டது.'
-                        : 'Booking completed! Added to history.',
+                    _getTranslation('bookingCompletedAddedHistory'),
                   ),
                   backgroundColor: Colors.green,
                 ),
@@ -749,13 +643,7 @@ class _AcceptedBidsTabState extends State<_AcceptedBidsTab> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0B1533),
             ),
-            child: Text(
-              widget.language == 'si'
-                  ? 'තහවුරු කරන්න'
-                  : widget.language == 'ta'
-                  ? 'உறுதிப்படுத்து'
-                  : 'Confirm',
-            ),
+            child: Text(_getTranslation('confirm')),
           ),
         ],
       ),
@@ -765,13 +653,7 @@ class _AcceptedBidsTabState extends State<_AcceptedBidsTab> {
   void _contactWorker(_AcceptedBid bid) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          widget.language == 'si'
-              ? 'අමතමින්: ${bid.workerPhone}'
-              : widget.language == 'ta'
-              ? 'அழைக்கிறது: ${bid.workerPhone}'
-              : 'Calling: ${bid.workerPhone}',
-        ),
+        content: Text(AppLocalizations.of(context).calling(bid.workerPhone)),
         backgroundColor: Colors.blue,
       ),
     );
@@ -1002,7 +884,7 @@ class _AcceptedBidCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Amount',
+                        getTranslation('amount'),
                         style: TextStyle(
                           fontSize: 14,
                           color: theme.textSecondary,
@@ -1126,27 +1008,23 @@ class _HistoryTab extends StatelessWidget {
 
   const _HistoryTab({required this.theme, required this.language});
 
-  String _getTranslation(String key) {
-    final translations = {
-      'noHistory': {
-        'en': 'No booking history',
-        'si': 'වෙන්කිරීම් ඉතිහාසයක් නැත',
-        'ta': 'முன்பதிவு வரலாறு இல்லை',
-      },
-      'noHistoryDesc': {
-        'en': 'Your completed and cancelled bookings will appear here',
-        'si': 'ඔබගේ සම්පූර්ණ කළ සහ අවලංගු කළ වෙන්කිරීම් මෙහි පෙන්වයි',
-        'ta':
-            'உங்கள் நிறைவு செய்யப்பட்ட மற்றும் ரத்து செய்யப்பட்ட முன்பதிவுகள் இங்கே தோன்றும்',
-      },
-      'completed': {'en': 'Completed', 'si': 'සම්පූර්ණයි', 'ta': 'முடிந்தது'},
-      'cancelled': {
-        'en': 'Cancelled',
-        'si': 'අවලංගු කළා',
-        'ta': 'ரத்து செய்யப்பட்டது',
-      },
-    };
-    return translations[key]?[language] ?? translations[key]?['en'] ?? key;
+  String _getTranslation(BuildContext context, String key) {
+    final l10n = AppLocalizations.of(context);
+
+    switch (key) {
+      case 'noHistory':
+        return l10n.noHistory;
+      case 'noHistoryDesc':
+        return l10n.noHistoryDesc;
+      case 'completed':
+        return l10n.completed;
+      case 'cancelled':
+        return l10n.cancelled;
+      case 'totalAmount':
+        return l10n.totalAmount;
+      default:
+        return key;
+    }
   }
 
   @override
@@ -1196,7 +1074,7 @@ class _HistoryTab extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                _getTranslation('noHistory'),
+                _getTranslation(context, 'noHistory'),
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -1206,7 +1084,7 @@ class _HistoryTab extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                _getTranslation('noHistoryDesc'),
+                _getTranslation(context, 'noHistoryDesc'),
                 style: TextStyle(fontSize: 14, color: theme.textSecondary),
                 textAlign: TextAlign.center,
               ),
@@ -1224,7 +1102,7 @@ class _HistoryTab extends StatelessWidget {
         return _HistoryCard(
           booking: booking,
           theme: theme,
-          getTranslation: _getTranslation,
+          getTranslation: (key) => _getTranslation(context, key),
         );
       },
     );
@@ -1360,7 +1238,7 @@ class _HistoryCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Total Amount',
+                  getTranslation('totalAmount'),
                   style: TextStyle(fontSize: 14, color: theme.textSecondary),
                 ),
                 Text(

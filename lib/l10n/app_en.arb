@@ -1,0 +1,65 @@
+{
+  "@@locale": "en",
+  "bookings": "Bookings",
+  "bids": "Bids",
+  "accepted": "Accepted",
+  "history": "History",
+  "noBids": "No active bids yet",
+  "noBidsDesc": "Post a job request to start receiving bids from workers",
+  "accept": "Accept",
+  "decline": "Decline",
+  "jobs": "jobs",
+  "estimatedTime": "Estimated time",
+  "bidAcceptedWorkerWillContact": "Bid accepted! Worker will contact you soon.",
+  "bidDeclined": "Bid declined",
+  "bidAmount": "Bid Amount",
+  "amount": "Amount",
+  "noAccepted": "No accepted bids",
+  "noAcceptedDesc": "Bids you accept will appear here until work is completed",
+  "inProgress": "In Progress",
+  "scheduled": "Scheduled",
+  "contactWorker": "Contact Worker",
+  "markComplete": "Mark Complete",
+  "acceptedOn": "Accepted on",
+  "scheduledFor": "Scheduled for",
+  "workCompletedTitle": "Work Completed?",
+  "workCompletedQuestion": "Confirm that this work has been completed successfully?",
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "bookingCompletedAddedHistory": "Booking completed! Added to history.",
+  "calling": "Calling: {phone}",
+  "@calling": {
+    "placeholders": {
+      "phone": {}
+    }
+  },
+  "noHistory": "No booking history",
+  "noHistoryDesc": "Your completed and cancelled bookings will appear here",
+  "completed": "Completed",
+  "cancelled": "Cancelled",
+  "totalAmount": "Total Amount",
+  "minutesAgo": "{count}m ago",
+  "@minutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hoursAgo": "{count}h ago",
+  "@hoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "daysAgo": "{count}d ago",
+  "@daysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
+}

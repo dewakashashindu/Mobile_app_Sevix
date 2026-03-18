@@ -9,8 +9,10 @@ class SettingsScreen extends StatefulWidget {
     required this.onBack,
     required this.language,
     required this.currentTheme,
+    required this.biometricEnabled,
     required this.onLanguageChange,
     required this.onThemeChange,
+    required this.onBiometricToggle,
     required this.onLogout,
     required this.onDeleteAccount,
   });
@@ -18,8 +20,10 @@ class SettingsScreen extends StatefulWidget {
   final VoidCallback onBack;
   final LanguageCode language; // en | si | ta
   final ThemeModeCode currentTheme; // light | dark
+  final bool biometricEnabled;
   final ValueChanged<LanguageCode> onLanguageChange;
   final ValueChanged<ThemeModeCode> onThemeChange;
+  final ValueChanged<bool> onBiometricToggle;
   final VoidCallback onLogout;
   final VoidCallback onDeleteAccount;
 
@@ -762,6 +766,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         label: _txt('Theme', 'තේමාව', 'தீம்'),
                         value: selectedTheme.name,
                         onTap: _openThemePicker,
+                      ),
+                      _divider(),
+                      _settingTile(
+                        icon: Icons.fingerprint,
+                        iconColor: const Color(0xFF27AE60),
+                        label: _txt(
+                          'Biometric Login',
+                          'ජෛවමිතික පිවිසුම',
+                          'பயோமெட்ரிக் உள்நுழைவு',
+                        ),
+                        value: _txt(
+                          'Use fingerprint/face to unlock session',
+                          'සැසිය අගුළු හරියි',
+                          'அமர்வை திறக்க விரல்சுவடு/முகம் பயன்படுத்து',
+                        ),
+                        trailing: Switch(
+                          value: widget.biometricEnabled,
+                          onChanged: widget.onBiometricToggle,
+                        ),
                       ),
                     ],
                   ),

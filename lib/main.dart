@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:sevix/l10n/app_localizations.dart';
+import 'services/auth_manager.dart';
 import 'settings_screen.dart' as separate;
 import 'worker_type_screen.dart' as worker_ui;
 import 'notification_screen.dart' as notification_ui;
@@ -23,6 +26,13 @@ class SevixApp extends StatelessWidget {
     return MaterialApp(
       title: 'Sevix',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0B1533)),
         useMaterial3: true,
@@ -322,8 +332,10 @@ class AppRoot extends StatefulWidget {
 }
 
 class _AppRootState extends State<AppRoot> {
+  bool _authLoading = true;
   bool _isLoggedIn = false;
   bool _showSignup = false;
+  bool _biometricEnabled = false;
   String _selectedLanguage = '';
   String _currentTheme = 'light';
 
@@ -355,6 +367,54 @@ class _AppRootState extends State<AppRoot> {
   AppTheme get _theme =>
       _currentTheme == 'dark' ? AppTheme.dark : AppTheme.light;
   AppTranslations get _t => AppTranslations.forLang(_selectedLanguage);
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrapAuth();
+  }
+
+  Future<void> _bootstrapAuth() async {
+    final biometricEnabled = await AuthManager.instance.getBiometricEnabled();
+    final restored = await AuthManager.instance.restoreSession(
+      requireBiometric: biometricEnabled,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _biometricEnabled = biometricEnabled;
+      _isLoggedIn = restored;
+      _authLoading = false;
+    });
+  }
+
+  Future<void> _toggleBiometric(bool enabled) async {
+    final activated = await AuthManager.instance.setBiometricEnabled(enabled);
+    if (!mounted) return;
+
+    setState(() => _biometricEnabled = activated);
+
+    if (enabled && !activated) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Biometric authentication is not available on this device.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _withSelectedLocale(Widget child) {
+    if (_selectedLanguage.isEmpty) {
+      return child;
+    }
+    return Localizations.override(
+      context: context,
+      locale: Locale(_selectedLanguage),
+      child: child,
+    );
+  }
 
   void _selectCategory(String categoryName) {
     final available = kWorkers
@@ -390,6 +450,10 @@ class _AppRootState extends State<AppRoot> {
 
   @override
   Widget build(BuildContext context) {
+    if (_authLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     if (_selectedLanguage.isEmpty) {
       return LanguageSelectScreen(
         onSelect: (lang) => setState(() => _selectedLanguage = lang),
@@ -398,182 +462,207 @@ class _AppRootState extends State<AppRoot> {
 
     if (!_isLoggedIn) {
       if (_showSignup) {
-        return SignupScreen(
-          theme: _theme,
-          selectedLanguage: _selectedLanguage,
-          onSignUpSuccess: () => setState(() {
-            _isLoggedIn = true;
-            _showSignup = false;
-          }),
-          onNavigateToLogin: () => setState(() => _showSignup = false),
+        return _withSelectedLocale(
+          SignupScreen(
+            theme: _theme,
+            selectedLanguage: _selectedLanguage,
+            onSignUpSuccess: () => setState(() {
+              _isLoggedIn = true;
+              _showSignup = false;
+            }),
+            onNavigateToLogin: () => setState(() => _showSignup = false),
+          ),
         );
       }
-      return LoginScreen(
-        theme: _theme,
-        selectedLanguage: _selectedLanguage,
-        onLoginSuccess: () => setState(() => _isLoggedIn = true),
-        onNavigateToSignup: () => setState(() => _showSignup = true),
+      return _withSelectedLocale(
+        LoginScreen(
+          theme: _theme,
+          selectedLanguage: _selectedLanguage,
+          onLoginSuccess: () => setState(() => _isLoggedIn = true),
+          onNavigateToSignup: () => setState(() => _showSignup = true),
+        ),
       );
     }
 
     if (_activeTab == 'bookings') {
-      return BookingsManagementScreen(
-        theme: _theme,
-        selectedLanguage: _selectedLanguage,
-        onBack: () => setState(() => _activeTab = 'home'),
+      return _withSelectedLocale(
+        BookingsManagementScreen(
+          theme: _theme,
+          selectedLanguage: _selectedLanguage,
+          onBack: () => setState(() => _activeTab = 'home'),
+        ),
       );
     }
 
     if (_activeTab == 'favorites') {
-      return FavoriteScreen(
-        theme: _theme,
-        language: _selectedLanguage,
-        favorites: _favorites,
-        onBack: () => setState(() => _activeTab = 'home'),
-        onRemoveFavorite: (id) => setState(
-          () => _favorites = _favorites.where((f) => f.id != id).toList(),
+      return _withSelectedLocale(
+        FavoriteScreen(
+          theme: _theme,
+          language: _selectedLanguage,
+          favorites: _favorites,
+          onBack: () => setState(() => _activeTab = 'home'),
+          onRemoveFavorite: (id) => setState(
+            () => _favorites = _favorites.where((f) => f.id != id).toList(),
+          ),
+          onSelectFavorite: (cat) {
+            setState(() => _activeTab = 'home');
+            _selectCategory(cat);
+          },
         ),
-        onSelectFavorite: (cat) {
-          setState(() => _activeTab = 'home');
-          _selectCategory(cat);
-        },
       );
     }
 
     if (_activeTab == 'settings') {
-      return separate.SettingsScreen(
-        language: _selectedLanguage,
-        currentTheme: _currentTheme,
-        onBack: () => setState(() => _activeTab = 'home'),
-        onLanguageChange: (lang) => setState(() => _selectedLanguage = lang),
-        onThemeChange: (th) => setState(() => _currentTheme = th),
-        onLogout: () => setState(() {
-          _isLoggedIn = false;
-          _activeTab = 'home';
-          _currentScreen = 'home';
-        }),
-        onDeleteAccount: () => setState(() {
-          _isLoggedIn = false;
-          _activeTab = 'home';
-          _currentScreen = 'home';
-        }),
+      return _withSelectedLocale(
+        separate.SettingsScreen(
+          language: _selectedLanguage,
+          currentTheme: _currentTheme,
+          biometricEnabled: _biometricEnabled,
+          onBack: () => setState(() => _activeTab = 'home'),
+          onLanguageChange: (lang) => setState(() => _selectedLanguage = lang),
+          onThemeChange: (th) => setState(() => _currentTheme = th),
+          onBiometricToggle: _toggleBiometric,
+          onLogout: () => setState(() {
+            AuthManager.instance.logout();
+            _isLoggedIn = false;
+            _activeTab = 'home';
+            _currentScreen = 'home';
+          }),
+          onDeleteAccount: () => setState(() {
+            AuthManager.instance.logout();
+            _isLoggedIn = false;
+            _activeTab = 'home';
+            _currentScreen = 'home';
+          }),
+        ),
       );
     }
 
     if (_currentScreen == 'notifications') {
-      return notification_ui.NotificationScreen(
-        language: _selectedLanguage,
-        currentTheme: _currentTheme,
-        translateCategory: getCategoryTranslation,
-        onBack: () => setState(() => _currentScreen = 'home'),
+      return _withSelectedLocale(
+        notification_ui.NotificationScreen(
+          language: _selectedLanguage,
+          currentTheme: _currentTheme,
+          translateCategory: getCategoryTranslation,
+          onBack: () => setState(() => _currentScreen = 'home'),
+        ),
       );
     }
 
     if (_currentScreen == 'findWorker') {
-      return FindWorkerScreen(
-        theme: _theme,
-        language: _selectedLanguage,
-        workerType: _bookingContext['workerType'] ?? '',
-        userAddress: _bookingContext['address'] ?? '',
-        onBack: () => setState(() => _currentScreen = 'home'),
+      return _withSelectedLocale(
+        FindWorkerScreen(
+          theme: _theme,
+          language: _selectedLanguage,
+          workerType: _bookingContext['workerType'] ?? '',
+          userAddress: _bookingContext['address'] ?? '',
+          onBack: () => setState(() => _currentScreen = 'home'),
+        ),
       );
     }
 
     if (_currentScreen == 'booking') {
-      return booking_ui.BookingScreen(
-        initialWorkerCategory:
-            _bookingContext['workerType'] ??
-            _selectedWorker?.category ??
-            'Plumber',
-        language: _selectedLanguage,
-        currentTheme: _currentTheme,
-        translateCategory: getCategoryTranslation,
-        onBack: () => setState(() {
-          _currentScreen = 'home';
-          _selectedWorker = null;
-          _bookingContext = {};
-        }),
-        onPostJobRequest: (jobRequest) {
-          setState(() {
+      return _withSelectedLocale(
+        booking_ui.BookingScreen(
+          initialWorkerCategory:
+              _bookingContext['workerType'] ??
+              _selectedWorker?.category ??
+              'Plumber',
+          language: _selectedLanguage,
+          currentTheme: _currentTheme,
+          translateCategory: getCategoryTranslation,
+          onBack: () => setState(() {
             _currentScreen = 'home';
             _selectedWorker = null;
             _bookingContext = {};
-          });
-          // Navigate to bids inbox or show success
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                getCategoryTranslation(
-                  'Job posted! Check your notification inbox for bids.',
-                  _selectedLanguage,
+          }),
+          onPostJobRequest: (jobRequest) {
+            setState(() {
+              _currentScreen = 'home';
+              _selectedWorker = null;
+              _bookingContext = {};
+            });
+            // Navigate to bids inbox or show success
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  getCategoryTranslation(
+                    'Job posted! Check your notification inbox for bids.',
+                    _selectedLanguage,
+                  ),
                 ),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 3),
               ),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        },
+            );
+          },
+        ),
       );
     }
 
     if (_currentScreen == 'workerType') {
-      return worker_ui.WorkerTypeScreen(
-        language: _selectedLanguage,
-        currentTheme: _currentTheme,
-        favoriteCategories: _favorites.map((f) => f.category).toList(),
-        onBack: () => setState(() => _currentScreen = 'home'),
-        onSelectCategory: _selectCategory,
-        onToggleFavorite: (cat) => setState(() {
-          if (_favorites.any((f) => f.category == cat)) {
-            _favorites = _favorites.where((f) => f.category != cat).toList();
-          } else {
-            _favorites = [
-              ..._favorites,
-              Favorite(id: cat.hashCode, name: cat, category: cat),
-            ];
-          }
-        }),
-        getCategoryCount: (category) =>
-            kWorkers.where((w) => w.available && w.category == category).length,
+      return _withSelectedLocale(
+        worker_ui.WorkerTypeScreen(
+          language: _selectedLanguage,
+          currentTheme: _currentTheme,
+          favoriteCategories: _favorites.map((f) => f.category).toList(),
+          onBack: () => setState(() => _currentScreen = 'home'),
+          onSelectCategory: _selectCategory,
+          onToggleFavorite: (cat) => setState(() {
+            if (_favorites.any((f) => f.category == cat)) {
+              _favorites = _favorites.where((f) => f.category != cat).toList();
+            } else {
+              _favorites = [
+                ..._favorites,
+                Favorite(id: cat.hashCode, name: cat, category: cat),
+              ];
+            }
+          }),
+          getCategoryCount: (category) => kWorkers
+              .where((w) => w.available && w.category == category)
+              .length,
+        ),
       );
     }
 
     // Main home screen
-    return HomeScreen(
-      theme: _theme,
-      language: _selectedLanguage,
-      t: _t,
-      activeTab: _activeTab,
-      addresses: _addresses,
-      selectedAddressIndex: _selectedAddressIndex,
-      promotions: _promotions,
-      promoVisible: _promoVisible,
-      onUpdateAddresses: (list) => setState(() => _addresses = list),
-      onSetSelectedAddressIndex: (i) =>
-          setState(() => _selectedAddressIndex = i),
-      onSelectCategory: _selectCategory,
-      onShowCategories: () => setState(() => _currentScreen = 'workerType'),
-      onBookNow: _bookNow,
-      onNotificationPress: () =>
-          setState(() => _currentScreen = 'notifications'),
-      onSetActiveTab: (tab) => setState(() => _activeTab = tab),
-      onGoToFavorites: () => setState(() => _activeTab = 'favorites'),
-      onGoToSettings: () => setState(() => _activeTab = 'settings'),
-      onSetPromoVisible: (v) => setState(() => _promoVisible = v),
-      onNavigateSearch: (action) {
-        switch (action) {
-          case 'settings':
-            setState(() => _activeTab = 'settings');
-          case 'workerType':
-            setState(() => _currentScreen = 'workerType');
-          case 'bookings':
-            setState(() => _activeTab = 'bookings');
-          case 'favorites':
-            setState(() => _activeTab = 'favorites');
-          case 'notifications':
-            setState(() => _currentScreen = 'notifications');
-        }
-      },
+    return _withSelectedLocale(
+      HomeScreen(
+        theme: _theme,
+        language: _selectedLanguage,
+        t: _t,
+        activeTab: _activeTab,
+        addresses: _addresses,
+        selectedAddressIndex: _selectedAddressIndex,
+        promotions: _promotions,
+        promoVisible: _promoVisible,
+        onUpdateAddresses: (list) => setState(() => _addresses = list),
+        onSetSelectedAddressIndex: (i) =>
+            setState(() => _selectedAddressIndex = i),
+        onSelectCategory: _selectCategory,
+        onShowCategories: () => setState(() => _currentScreen = 'workerType'),
+        onBookNow: _bookNow,
+        onNotificationPress: () =>
+            setState(() => _currentScreen = 'notifications'),
+        onSetActiveTab: (tab) => setState(() => _activeTab = tab),
+        onGoToFavorites: () => setState(() => _activeTab = 'favorites'),
+        onGoToSettings: () => setState(() => _activeTab = 'settings'),
+        onSetPromoVisible: (v) => setState(() => _promoVisible = v),
+        onNavigateSearch: (action) {
+          switch (action) {
+            case 'settings':
+              setState(() => _activeTab = 'settings');
+            case 'workerType':
+              setState(() => _currentScreen = 'workerType');
+            case 'bookings':
+              setState(() => _activeTab = 'bookings');
+            case 'favorites':
+              setState(() => _activeTab = 'favorites');
+            case 'notifications':
+              setState(() => _currentScreen = 'notifications');
+          }
+        },
+      ),
     );
   }
 }
