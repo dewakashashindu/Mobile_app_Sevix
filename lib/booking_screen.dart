@@ -5,6 +5,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'map_pin_picker_screen.dart';
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({
@@ -379,6 +380,30 @@ class _BookingScreenState extends State<BookingScreen> {
                   await _openManualLocationDialog();
                 },
               ),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFE7EEF8),
+                  child: Icon(Icons.map_outlined, color: Color(0xFF0B1533)),
+                ),
+                title: Text(
+                  _txt(
+                    'Pick on Map',
+                    'සිතියමෙන් තෝරන්න',
+                    'வரைபடத்தில் தேர்ந்தெடுக்கவும்',
+                  ),
+                ),
+                subtitle: Text(
+                  _txt(
+                    'Drop a pin and confirm location',
+                    'පින් එකක් තබා ස්ථානය තහවුරු කරන්න',
+                    'ஒரு பின் வைத்து இடத்தை உறுதிப்படுத்தவும்',
+                  ),
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _openMapPinPicker();
+                },
+              ),
               const SizedBox(height: 8),
               Flexible(
                 child: ListView.builder(
@@ -409,6 +434,29 @@ class _BookingScreenState extends State<BookingScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openMapPinPicker() async {
+    final result = await Navigator.of(context).push<MapPinSelection>(
+      MaterialPageRoute(
+        builder: (_) => MapPinPickerScreen(
+          language: widget.language,
+          isDark: _isDark,
+          initialLatitude: _selectedLatitude,
+          initialLongitude: _selectedLongitude,
+        ),
+      ),
+    );
+
+    if (result == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedAddress = result.address;
+      _selectedLatitude = result.latitude;
+      _selectedLongitude = result.longitude;
+    });
   }
 
   Future<void> _openManualLocationDialog() async {
