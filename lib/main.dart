@@ -530,16 +530,17 @@ class _AppRootState extends State<AppRoot> {
           }),
           onPostJobRequest: (jobRequest) {
             setState(() {
+              _activeTab = 'bookings';
               _currentScreen = 'home';
               _selectedWorker = null;
               _bookingContext = {};
             });
-            // Navigate to bids inbox or show success
+            // Navigate to bookings tab and show confirmation.
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
                   getCategoryTranslation(
-                    'Job posted! Check your notification inbox for bids.',
+                    'Job posted! Opening Bookings to view bids.',
                     _selectedLanguage,
                   ),
                 ),

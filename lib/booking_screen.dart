@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'map_pin_picker_screen.dart';
 
 class BookingScreen extends StatefulWidget {
@@ -32,6 +34,7 @@ class BookingScreen extends StatefulWidget {
 
 class _BookingScreenState extends State<BookingScreen> {
   static const int _maxPhotos = 5;
+  static const String _draftStorageKey = 'booking_screen_draft_v1';
 
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = TimeOfDay.now();
@@ -41,7 +44,11 @@ class _BookingScreenState extends State<BookingScreen> {
   double? _selectedLatitude;
   double? _selectedLongitude;
   bool _locating = false;
+  bool _draftLoaded = false;
 
+  RequestMode _requestMode = RequestMode.bidding;
+
+  final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _minBudgetController = TextEditingController();
   final TextEditingController _maxBudgetController = TextEditingController();
@@ -77,10 +84,12 @@ class _BookingScreenState extends State<BookingScreen> {
   void initState() {
     super.initState();
     _selectedWorkerType = widget.initialWorkerCategory;
+    _loadDraft();
   }
 
   @override
   void dispose() {
+    _titleController.dispose();
     _descriptionController.dispose();
     _minBudgetController.dispose();
     _maxBudgetController.dispose();
@@ -203,10 +212,151 @@ class _BookingScreenState extends State<BookingScreen> {
     final budgetError = _getBudgetValidationError();
     return _selectedWorkerType.isNotEmpty &&
         _selectedAddress.isNotEmpty &&
+        _titleController.text.trim().isNotEmpty &&
         _descriptionController.text.trim().isNotEmpty &&
         _minBudgetController.text.trim().isNotEmpty &&
         _maxBudgetController.text.trim().isNotEmpty &&
         budgetError == null;
+  }
+
+  int? get _instantQuoteAmount {
+    if (_requestMode != RequestMode.instantQuote) {
+      return null;
+    }
+    final minBudget = _parseBudget(_minBudgetController.text.trim());
+    final maxBudget = _parseBudget(_maxBudgetController.text.trim());
+    if (minBudget == null || maxBudget == null) {
+      return null;
+    }
+    return ((minBudget + maxBudget) / 2).round();
+  }
+
+  Future<void> _saveDraft({bool showMessage = false}) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final draftData = <String, dynamic>{
+      'selectedDate': _selectedDate.toIso8601String(),
+      'selectedHour': _selectedTime.hour,
+      'selectedMinute': _selectedTime.minute,
+      'selectedWorkerType': _selectedWorkerType,
+      'selectedAddress': _selectedAddress,
+      'selectedLatitude': _selectedLatitude,
+      'selectedLongitude': _selectedLongitude,
+      'requestMode': _requestMode.name,
+      'title': _titleController.text.trim(),
+      'description': _descriptionController.text.trim(),
+      'minBudget': _minBudgetController.text.trim(),
+      'maxBudget': _maxBudgetController.text.trim(),
+      'photos': _selectedPhotos.map((photo) => photo.path).toList(),
+    };
+
+    await prefs.setString(_draftStorageKey, jsonEncode(draftData));
+
+    if (showMessage && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _txt(
+              'Draft saved',
+              'කටුපත්‍රය සුරකින ලදී',
+              'வரைவு சேமிக்கப்பட்டது',
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _loadDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_draftStorageKey);
+
+    if (raw == null || raw.isEmpty) {
+      _draftLoaded = true;
+      return;
+    }
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        _draftLoaded = true;
+        return;
+      }
+
+      final dateString = decoded['selectedDate'] as String?;
+      final selectedHour = decoded['selectedHour'] as int?;
+      final selectedMinute = decoded['selectedMinute'] as int?;
+      final requestModeValue = decoded['requestMode'] as String?;
+
+      final draftPhotoPaths = (decoded['photos'] as List<dynamic>? ?? const [])
+          .whereType<String>()
+          .where((path) => path.trim().isNotEmpty)
+          .take(_maxPhotos)
+          .toList();
+
+      if (!mounted) {
+        _draftLoaded = true;
+        return;
+      }
+
+      setState(() {
+        _selectedDate = dateString != null
+            ? DateTime.tryParse(dateString) ?? _selectedDate
+            : _selectedDate;
+        if (selectedHour != null && selectedMinute != null) {
+          _selectedTime = TimeOfDay(hour: selectedHour, minute: selectedMinute);
+        }
+
+        _selectedWorkerType =
+            (decoded['selectedWorkerType'] as String?)?.trim().isNotEmpty ==
+                true
+            ? (decoded['selectedWorkerType'] as String)
+            : _selectedWorkerType;
+
+        _selectedAddress =
+            (decoded['selectedAddress'] as String?)?.trim().isNotEmpty == true
+            ? (decoded['selectedAddress'] as String)
+            : _selectedAddress;
+        _selectedLatitude = (decoded['selectedLatitude'] as num?)?.toDouble();
+        _selectedLongitude = (decoded['selectedLongitude'] as num?)?.toDouble();
+
+        _requestMode = requestModeValue == RequestMode.instantQuote.name
+            ? RequestMode.instantQuote
+            : RequestMode.bidding;
+
+        _titleController.text = decoded['title'] as String? ?? '';
+        _descriptionController.text = decoded['description'] as String? ?? '';
+        _minBudgetController.text = decoded['minBudget'] as String? ?? '';
+        _maxBudgetController.text = decoded['maxBudget'] as String? ?? '';
+
+        _selectedPhotos
+          ..clear()
+          ..addAll(draftPhotoPaths.map(XFile.new));
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _txt(
+                'Saved draft restored',
+                'සුරකින ලද කටුපත ප්‍රතිස්ථාපනය කරන ලදී',
+                'சேமித்த வரைவு மீட்டமைக்கப்பட்டது',
+              ),
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      await prefs.remove(_draftStorageKey);
+    } finally {
+      _draftLoaded = true;
+    }
+  }
+
+  Future<void> _clearDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_draftStorageKey);
   }
 
   Future<void> _pickPhotos() async {
@@ -703,6 +853,25 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   void _handleSubmit() {
+    if (!_draftLoaded) {
+      return;
+    }
+
+    if (_titleController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _txt(
+              'Please add a request title',
+              'කරුණාකර ඉල්ලීම සඳහා මාතෘකාවක් එක් කරන්න',
+              'கோரிக்கைக்கான தலைப்பை சேர்க்கவும்',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     if (_descriptionController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -747,11 +916,13 @@ class _BookingScreenState extends State<BookingScreen> {
 
     final jobRequest = {
       'workerType': _selectedWorkerType,
+      'title': _titleController.text.trim(),
       'address': _selectedAddress,
       'latitude': _selectedLatitude,
       'longitude': _selectedLongitude,
       'date': _formatDate(_selectedDate),
       'timeSlot': _formatTime(_selectedTime),
+      'requestMode': _requestMode.name,
       'serviceDescription': _descriptionController.text.trim(),
       'minBudget': minBudget,
       'maxBudget': maxBudget,
@@ -760,15 +931,22 @@ class _BookingScreenState extends State<BookingScreen> {
     };
 
     widget.onPostJobRequest(jobRequest);
+    _clearDraft();
 
     // Show success message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           _txt(
-            'Job request posted! Workers will start bidding soon.',
-            'රැකියා ඉල්ලීම පළ කරන ලදී! කම්කරුවන් ඉක්මනින් ලංසු තැබීම ආරම්භ කරනු ඇත.',
-            'வேலை கோரிக்கை வெளியிடப்பட்டது! பணியாளர்கள் விரைவில் ஏலம் எடுக்கத் தொடங்குவார்கள்.',
+            _requestMode == RequestMode.instantQuote
+                ? 'Request sent with instant quote!'
+                : 'Job request posted! Workers will start bidding soon.',
+            _requestMode == RequestMode.instantQuote
+                ? 'ක්ෂණික උපුටා දැක්වීම සමඟ ඉල්ලීම යවන ලදී!'
+                : 'රැකියා ඉල්ලීම පළ කරන ලදී! කම්කරුවන් ඉක්මනින් ලංසු තැබීම ආරම්භ කරනු ඇත.',
+            _requestMode == RequestMode.instantQuote
+                ? 'உடனடி மதிப்பீட்டுடன் கோரிக்கை அனுப்பப்பட்டது!'
+                : 'வேலை கோரிக்கை வெளியிடப்பட்டது! பணியாளர்கள் விரைவில் ஏலம் எடுக்கத் தொடங்குவார்கள்.',
           ),
         ),
         backgroundColor: Colors.green,
@@ -845,6 +1023,130 @@ class _BookingScreenState extends State<BookingScreen> {
                     value: _formatTime(_selectedTime),
                     icon: Icons.access_time,
                     onTap: _pickTime,
+                  ),
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: _theme.card,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _txt('Request Type', 'ඉල්ලීම් වර්ගය', 'கோரிக்கை வகை'),
+                          style: TextStyle(
+                            color: _theme.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SegmentedButton<RequestMode>(
+                          showSelectedIcon: false,
+                          style: SegmentedButton.styleFrom(
+                            foregroundColor: _theme.textPrimary,
+                            selectedForegroundColor: Colors.white,
+                            selectedBackgroundColor: const Color(0xFF0B1533),
+                            side: BorderSide(color: _theme.inputBorder),
+                          ),
+                          segments: [
+                            ButtonSegment(
+                              value: RequestMode.bidding,
+                              label: Text(_txt('Open Bidding', 'ලංසු', 'ஏலம்')),
+                              icon: const Icon(Icons.gavel),
+                            ),
+                            ButtonSegment(
+                              value: RequestMode.instantQuote,
+                              label: Text(
+                                _txt(
+                                  'Instant Quote',
+                                  'ක්ෂණික මිල ඇස්තමේන්තුව',
+                                  'உடனடி மதிப்பீடு',
+                                ),
+                              ),
+                              icon: const Icon(Icons.flash_on),
+                            ),
+                          ],
+                          selected: {_requestMode},
+                          onSelectionChanged: (selection) {
+                            if (selection.isEmpty) {
+                              return;
+                            }
+                            setState(() => _requestMode = selection.first);
+                          },
+                        ),
+                        if (_requestMode == RequestMode.instantQuote)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Text(
+                              _instantQuoteAmount == null
+                                  ? _txt(
+                                      'Add a valid budget range to see your instant quote.',
+                                      'ක්ෂණික උපුටා දැක්වීම බලන්න වලංගු අයවැය පරාසයක් එක් කරන්න.',
+                                      'உடனடி மதிப்பீட்டை காண சரியான வரவு செலவுத் திட்ட வரம்பை சேர்க்கவும்.',
+                                    )
+                                  : _txt(
+                                      'Estimated instant quote: ${_formatCurrency(_instantQuoteAmount!)}',
+                                      'ඇස්තමේන්තුගත ක්ෂණික උපුටා දැක්වීම: ${_formatCurrency(_instantQuoteAmount!)}',
+                                      'மதிப்பிடப்பட்ட உடனடி மேற்கோள்: ${_formatCurrency(_instantQuoteAmount!)}',
+                                    ),
+                              style: TextStyle(
+                                color: _theme.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: _theme.card,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _txt(
+                            'Request Title',
+                            'ඉල්ලීමේ මාතෘකාව',
+                            'கோரிக்கை தலைப்பு',
+                          ),
+                          style: TextStyle(
+                            color: _theme.textPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _titleController,
+                          onChanged: (_) => setState(() {}),
+                          maxLength: 80,
+                          decoration: InputDecoration(
+                            hintText: _txt(
+                              'e.g. Fix leaking kitchen sink',
+                              'උදා: කුස්සියේ ජල නළ කාන්දුව අලුත්වැඩියා කිරීම',
+                              'எ.கா. கசிவான சமையலறை கழுவை சரி செய்யவும்',
+                            ),
+                            hintStyle: TextStyle(
+                              color: _theme.inputPlaceholder,
+                            ),
+                            filled: true,
+                            fillColor: _theme.inputBackground,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: _theme.inputBorder),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   Container(
                     margin: const EdgeInsets.only(bottom: 12),
@@ -1153,40 +1455,72 @@ class _BookingScreenState extends State<BookingScreen> {
                 color: _theme.card,
                 border: Border(top: BorderSide(color: _theme.border)),
               ),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _isFormValid() ? _handleSubmit : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF0B1533),
-                    disabledBackgroundColor: const Color(0xFFE8EAF0),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  icon: Icon(
-                    Icons.send,
-                    color: _isFormValid() ? Colors.white : _theme.textSecondary,
-                  ),
-                  label: Text(
-                    _txt(
-                      'Post Job Request',
-                      'රැකියා ඉල්ලීම පළ කරන්න',
-                      'வேலை கோரிக்கையை இடுங்கள்',
-                    ),
-                    style: TextStyle(
-                      color: _isFormValid()
-                          ? Colors.white
-                          : _theme.textSecondary,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _saveDraft(showMessage: true),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _theme.textPrimary,
+                        side: BorderSide(color: _theme.inputBorder),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(Icons.save_outlined),
+                      label: Text(
+                        _txt('Save Draft', 'කටුපත සුරකින්න', 'வரைவை சேமி'),
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton.icon(
+                      onPressed: _isFormValid() ? _handleSubmit : null,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF0B1533),
+                        disabledBackgroundColor: const Color(0xFFE8EAF0),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: Icon(
+                        _requestMode == RequestMode.instantQuote
+                            ? Icons.flash_on
+                            : Icons.send,
+                        color: _isFormValid()
+                            ? Colors.white
+                            : _theme.textSecondary,
+                      ),
+                      label: Text(
+                        _txt(
+                          _requestMode == RequestMode.instantQuote
+                              ? 'Get Instant Quote'
+                              : 'Post Job Request',
+                          _requestMode == RequestMode.instantQuote
+                              ? 'ක්ෂණික මිල අයදුම් කරන්න'
+                              : 'රැකියා ඉල්ලීම පළ කරන්න',
+                          _requestMode == RequestMode.instantQuote
+                              ? 'உடனடி மதிப்பீடு பெறுக'
+                              : 'வேலை கோரிக்கையை இடுங்கள்',
+                        ),
+                        style: TextStyle(
+                          color: _isFormValid()
+                              ? Colors.white
+                              : _theme.textSecondary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -1276,3 +1610,5 @@ class _Theme {
   final Color inputBorder;
   final Color inputPlaceholder;
 }
+
+enum RequestMode { bidding, instantQuote }

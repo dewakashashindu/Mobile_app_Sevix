@@ -74,7 +74,10 @@ class _LanguageSelectScreenState extends State<LanguageSelectScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight - 32,
+                        minHeight: (constraints.maxHeight - 32).clamp(
+                          0.0,
+                          double.infinity,
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,

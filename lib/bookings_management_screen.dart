@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'main.dart' show AppTheme;
 import 'package:sevix/l10n/app_localizations.dart';
+import 'payment_checkout_screen.dart';
 
 class BookingsManagementScreen extends StatefulWidget {
   final AppTheme theme;
@@ -117,10 +118,13 @@ class _BidsTab extends StatefulWidget {
 }
 
 class _BidsTabState extends State<_BidsTab> {
+  final Set<String> _selectedBidIdsForCompare = <String>{};
+
   // Sample bids data
   final List<_Bid> _bids = [
     _Bid(
       id: '1',
+      requestId: 'req_001',
       workerName: 'Sunil Perera',
       workerImage: '👷',
       workerType: 'Plumber',
@@ -131,11 +135,30 @@ class _BidsTabState extends State<_BidsTab> {
       description:
           'I can fix your leaking pipe issue quickly. I have 10 years of experience.',
       jobTitle: 'Fix Kitchen Sink Leak',
+      requestPostedAt: DateTime.now().subtract(const Duration(hours: 6)),
       timestamp: DateTime.now().subtract(const Duration(hours: 2)),
       status: _BidStatus.pending,
     ),
     _Bid(
       id: '2',
+      requestId: 'req_001',
+      workerName: 'Tharindu Mendis',
+      workerImage: '🧰',
+      workerType: 'Plumber',
+      rating: 4.7,
+      completedJobs: 121,
+      bidAmount: 2300,
+      estimatedTime: '2.5 hours',
+      description:
+          'Can arrive within 30 minutes. Includes parts check and leak test.',
+      jobTitle: 'Fix Kitchen Sink Leak',
+      requestPostedAt: DateTime.now().subtract(const Duration(hours: 6)),
+      timestamp: DateTime.now().subtract(const Duration(hours: 5)),
+      status: _BidStatus.pending,
+    ),
+    _Bid(
+      id: '3',
+      requestId: 'req_002',
       workerName: 'Kasun Silva',
       workerImage: '🔧',
       workerType: 'Electrician',
@@ -146,22 +169,24 @@ class _BidsTabState extends State<_BidsTab> {
       description:
           'Professional electrical work with warranty. Available immediately.',
       jobTitle: 'Install Ceiling Fan',
-      timestamp: DateTime.now().subtract(const Duration(hours: 5)),
+      requestPostedAt: DateTime.now().subtract(const Duration(hours: 10)),
+      timestamp: DateTime.now().subtract(const Duration(hours: 8)),
       status: _BidStatus.pending,
     ),
     _Bid(
-      id: '3',
-      workerName: 'Nimal Fernando',
-      workerImage: '🎨',
-      workerType: 'Painter',
+      id: '4',
+      requestId: 'req_002',
+      workerName: 'Sahan Wickrama',
+      workerImage: '💡',
+      workerType: 'Electrician',
       rating: 4.9,
-      completedJobs: 200,
-      bidAmount: 15000,
-      estimatedTime: '2 days',
-      description:
-          'High quality painting service. Will provide color consultation.',
-      jobTitle: 'Paint Living Room',
-      timestamp: DateTime.now().subtract(const Duration(hours: 8)),
+      completedJobs: 174,
+      bidAmount: 3400,
+      estimatedTime: '2 hours',
+      description: 'Premium wiring finish with quick turnaround and clean-up.',
+      jobTitle: 'Install Ceiling Fan',
+      requestPostedAt: DateTime.now().subtract(const Duration(hours: 10)),
+      timestamp: DateTime.now().subtract(const Duration(hours: 3)),
       status: _BidStatus.pending,
     ),
   ];
@@ -190,26 +215,268 @@ class _BidsTabState extends State<_BidsTab> {
   }
 
   void _acceptBid(_Bid bid) {
+    final scheduledDate = DateTime.now().add(const Duration(days: 1));
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: widget.theme.cardBackground,
+        title: Text(
+          'Booking Confirmation',
+          style: TextStyle(color: widget.theme.textPrimary),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _summaryRow('Request', bid.jobTitle),
+            const SizedBox(height: 6),
+            _summaryRow('Worker', bid.workerName),
+            const SizedBox(height: 6),
+            _summaryRow('Amount', 'LKR ${bid.bidAmount}'),
+            const SizedBox(height: 6),
+            _summaryRow('Estimated Time', bid.estimatedTime),
+            const SizedBox(height: 6),
+            _summaryRow(
+              'Scheduled',
+              '${scheduledDate.day}/${scheduledDate.month}/${scheduledDate.year}',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                for (var i = 0; i < _bids.length; i++) {
+                  final current = _bids[i];
+                  if (current.id == bid.id) {
+                    _bids[i] = current.copyWith(status: _BidStatus.accepted);
+                    continue;
+                  }
+                  if (current.requestId == bid.requestId &&
+                      current.status == _BidStatus.pending) {
+                    _bids[i] = current.copyWith(status: _BidStatus.declined);
+                  }
+                }
+                _selectedBidIdsForCompare.clear();
+              });
+
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    '${AppLocalizations.of(context).bidAcceptedWorkerWillContact} Summary confirmed.',
+                  ),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0B1533),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Confirm Booking'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 110,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: widget.theme.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              color: widget.theme.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _counterBid(_Bid bid) {
+    final amountController = TextEditingController(
+      text: (bid.bidAmount - 200).toString(),
+    );
+    final noteController = TextEditingController();
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: widget.theme.cardBackground,
+        title: Text(
+          'Counter Bid',
+          style: TextStyle(color: widget.theme.textPrimary),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: amountController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Your counter amount (LKR)',
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: noteController,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Message (optional)',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final counterAmount = int.tryParse(amountController.text.trim());
+              if (counterAmount == null || counterAmount <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Enter a valid counter amount.'),
+                  ),
+                );
+                return;
+              }
+
+              setState(() {
+                final index = _bids.indexWhere((b) => b.id == bid.id);
+                if (index != -1) {
+                  _bids[index] = _bids[index].copyWith(
+                    status: _BidStatus.countered,
+                    counterAmount: counterAmount,
+                    counterNote: noteController.text.trim(),
+                  );
+                }
+              });
+
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Counter bid sent: LKR $counterAmount'),
+                  backgroundColor: Colors.blue,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0B1533),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Send Counter'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggleCompareSelection(String bidId, bool selected) {
     setState(() {
-      final index = _bids.indexWhere((b) => b.id == bid.id);
-      if (index != -1) {
-        _bids[index] = bid.copyWith(status: _BidStatus.accepted);
+      if (selected) {
+        _selectedBidIdsForCompare.add(bidId);
+      } else {
+        _selectedBidIdsForCompare.remove(bidId);
       }
     });
+  }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          AppLocalizations.of(context).bidAcceptedWorkerWillContact,
+  void _showCompareDialog(List<_Bid> selectedBids) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: widget.theme.cardBackground,
+        title: Text(
+          'Compare Bids',
+          style: TextStyle(color: widget.theme.textPrimary),
         ),
-        backgroundColor: Colors.green,
+        content: SizedBox(
+          width: 620,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: selectedBids
+                  .map(
+                    (bid) => Container(
+                      width: 220,
+                      margin: const EdgeInsets.only(right: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: widget.theme.background,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: widget.theme.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            bid.workerName,
+                            style: TextStyle(
+                              color: widget.theme.textPrimary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            bid.workerType,
+                            style: TextStyle(color: widget.theme.textSecondary),
+                          ),
+                          const Divider(height: 16),
+                          Text('Bid: LKR ${bid.bidAmount}'),
+                          Text('ETA: ${bid.estimatedTime}'),
+                          Text('Rating: ${bid.rating}'),
+                          Text('Jobs: ${bid.completedJobs}'),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }
 
   void _declineBid(_Bid bid) {
     setState(() {
-      _bids.removeWhere((b) => b.id == bid.id);
+      final index = _bids.indexWhere((b) => b.id == bid.id);
+      if (index != -1) {
+        _bids[index] = bid.copyWith(status: _BidStatus.declined);
+      }
+      _selectedBidIdsForCompare.remove(bid.id);
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -233,7 +500,11 @@ class _BidsTabState extends State<_BidsTab> {
   @override
   Widget build(BuildContext context) {
     final activeBids = _bids
-        .where((b) => b.status == _BidStatus.pending)
+        .where(
+          (b) =>
+              b.status == _BidStatus.pending ||
+              b.status == _BidStatus.countered,
+        )
         .toList();
 
     if (activeBids.isEmpty) {
@@ -273,21 +544,65 @@ class _BidsTabState extends State<_BidsTab> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: activeBids.length,
-      itemBuilder: (context, index) {
-        final bid = activeBids[index];
-        return _BidCard(
-          bid: bid,
-          theme: widget.theme,
-          language: widget.language,
-          onAccept: () => _acceptBid(bid),
-          onDecline: () => _declineBid(bid),
-          formatTimestamp: _formatTimestamp,
-          getTranslation: _getTranslation,
-        );
-      },
+    final selectedBids = activeBids
+        .where((b) => _selectedBidIdsForCompare.contains(b.id))
+        .toList();
+
+    return Column(
+      children: [
+        Container(
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: widget.theme.cardBackground,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: widget.theme.border),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${selectedBids.length} selected for side-by-side comparison',
+                  style: TextStyle(color: widget.theme.textSecondary),
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: selectedBids.length >= 2
+                    ? () => _showCompareDialog(selectedBids)
+                    : null,
+                icon: const Icon(Icons.compare_arrows),
+                label: const Text('Compare'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0B1533),
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: activeBids.length,
+            itemBuilder: (context, index) {
+              final bid = activeBids[index];
+              return _BidCard(
+                bid: bid,
+                theme: widget.theme,
+                language: widget.language,
+                onAccept: () => _acceptBid(bid),
+                onDecline: () => _declineBid(bid),
+                onCounter: () => _counterBid(bid),
+                selectedForCompare: _selectedBidIdsForCompare.contains(bid.id),
+                onCompareToggle: (selected) =>
+                    _toggleCompareSelection(bid.id, selected),
+                formatTimestamp: _formatTimestamp,
+                getTranslation: _getTranslation,
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -301,6 +616,9 @@ class _BidCard extends StatelessWidget {
   final String language;
   final VoidCallback onAccept;
   final VoidCallback onDecline;
+  final VoidCallback onCounter;
+  final bool selectedForCompare;
+  final ValueChanged<bool> onCompareToggle;
   final String Function(DateTime) formatTimestamp;
   final String Function(String) getTranslation;
 
@@ -310,6 +628,9 @@ class _BidCard extends StatelessWidget {
     required this.language,
     required this.onAccept,
     required this.onDecline,
+    required this.onCounter,
+    required this.selectedForCompare,
+    required this.onCompareToggle,
     required this.formatTimestamp,
     required this.getTranslation,
   });
@@ -346,7 +667,15 @@ class _BidCard extends StatelessWidget {
                   formatTimestamp(bid.timestamp),
                   style: TextStyle(fontSize: 12, color: theme.textSecondary),
                 ),
+                Checkbox(
+                  value: selectedForCompare,
+                  onChanged: (value) => onCompareToggle(value ?? false),
+                ),
               ],
+            ),
+            Text(
+              'Request posted ${formatTimestamp(bid.requestPostedAt)}',
+              style: TextStyle(fontSize: 12, color: theme.textSecondary),
             ),
             const SizedBox(height: 12),
 
@@ -474,6 +803,33 @@ class _BidCard extends StatelessWidget {
                 height: 1.4,
               ),
             ),
+            if (bid.counterAmount != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.swap_horiz, size: 18, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Counter sent: LKR ${bid.counterAmount}${bid.counterNote != null && bid.counterNote!.isNotEmpty ? ' - ${bid.counterNote}' : ''}',
+                        style: TextStyle(
+                          color: theme.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
 
             // Action buttons
@@ -493,6 +849,24 @@ class _BidCard extends StatelessWidget {
                     child: Text(
                       getTranslation('decline'),
                       style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: onCounter,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF0B1533),
+                      side: const BorderSide(color: Color(0xFF0B1533)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Counter',
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -659,6 +1033,20 @@ class _AcceptedBidsTabState extends State<_AcceptedBidsTab> {
     );
   }
 
+  Future<void> _openPayment(_AcceptedBid bid) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PaymentCheckoutScreen(
+          theme: widget.theme,
+          language: widget.language,
+          jobTitle: bid.jobTitle,
+          workerName: bid.workerName,
+          amount: bid.bidAmount,
+        ),
+      ),
+    );
+  }
+
   String _formatDate(DateTime date) {
     final months = [
       'Jan',
@@ -726,6 +1114,7 @@ class _AcceptedBidsTabState extends State<_AcceptedBidsTab> {
           theme: widget.theme,
           language: widget.language,
           onContactWorker: () => _contactWorker(bid),
+          onPayNow: () => _openPayment(bid),
           onMarkComplete: () => _markComplete(bid),
           formatDate: _formatDate,
           getTranslation: _getTranslation,
@@ -743,6 +1132,7 @@ class _AcceptedBidCard extends StatelessWidget {
   final AppTheme theme;
   final String language;
   final VoidCallback onContactWorker;
+  final VoidCallback onPayNow;
   final VoidCallback onMarkComplete;
   final String Function(DateTime) formatDate;
   final String Function(String) getTranslation;
@@ -752,6 +1142,7 @@ class _AcceptedBidCard extends StatelessWidget {
     required this.theme,
     required this.language,
     required this.onContactWorker,
+    required this.onPayNow,
     required this.onMarkComplete,
     required this.formatDate,
     required this.getTranslation,
@@ -973,14 +1364,18 @@ class _AcceptedBidCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: onMarkComplete,
-                    icon: const Icon(Icons.check_circle, size: 18),
+                    onPressed: onPayNow,
+                    icon: const Icon(Icons.payments_outlined, size: 18),
                     label: Text(
-                      getTranslation('markComplete'),
+                      language == 'si'
+                          ? 'ගෙවන්න'
+                          : language == 'ta'
+                          ? 'செலுத்து'
+                          : 'Pay',
                       style: const TextStyle(fontSize: 13),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                      backgroundColor: const Color(0xFF0B1533),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
@@ -991,6 +1386,27 @@ class _AcceptedBidCard extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: onMarkComplete,
+                icon: const Icon(Icons.check_circle, size: 18),
+                label: Text(
+                  getTranslation('markComplete'),
+                  style: const TextStyle(fontSize: 13),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+              ),
             ),
           ],
         ),
@@ -1261,7 +1677,7 @@ class _HistoryCard extends StatelessWidget {
 // ============================================================
 // MODELS
 // ============================================================
-enum _BidStatus { pending, accepted, declined }
+enum _BidStatus { pending, accepted, declined, countered }
 
 enum _BookingStatus { completed, cancelled, inProgress }
 
@@ -1269,6 +1685,7 @@ enum _WorkStatus { scheduled, inProgress, completed }
 
 class _Bid {
   final String id;
+  final String requestId;
   final String workerName;
   final String workerImage;
   final String workerType;
@@ -1278,11 +1695,15 @@ class _Bid {
   final String estimatedTime;
   final String description;
   final String jobTitle;
+  final DateTime requestPostedAt;
   final DateTime timestamp;
   final _BidStatus status;
+  final int? counterAmount;
+  final String? counterNote;
 
   const _Bid({
     required this.id,
+    required this.requestId,
     required this.workerName,
     required this.workerImage,
     required this.workerType,
@@ -1292,13 +1713,17 @@ class _Bid {
     required this.estimatedTime,
     required this.description,
     required this.jobTitle,
+    required this.requestPostedAt,
     required this.timestamp,
     required this.status,
+    this.counterAmount,
+    this.counterNote,
   });
 
-  _Bid copyWith({_BidStatus? status}) {
+  _Bid copyWith({_BidStatus? status, int? counterAmount, String? counterNote}) {
     return _Bid(
       id: id,
+      requestId: requestId,
       workerName: workerName,
       workerImage: workerImage,
       workerType: workerType,
@@ -1308,8 +1733,11 @@ class _Bid {
       estimatedTime: estimatedTime,
       description: description,
       jobTitle: jobTitle,
+      requestPostedAt: requestPostedAt,
       timestamp: timestamp,
       status: status ?? this.status,
+      counterAmount: counterAmount ?? this.counterAmount,
+      counterNote: counterNote ?? this.counterNote,
     );
   }
 }
