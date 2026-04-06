@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sevix/l10n/app_localizations.dart';
+import 'package:sevix/features/home/presentation/providers/user_provider.dart';
 import 'settings_screen.dart' as separate;
 import 'worker_type_screen.dart' as worker_ui;
 import 'notification_screen.dart' as notification_ui;
@@ -584,12 +585,20 @@ class _AppRootState extends State<AppRoot> {
   }
 
   void _selectCategory(String categoryName) {
+    final resolvedCategory = _categoryNameFromIdOrName(categoryName);
     final available = kWorkers
-        .where((w) => w.category == categoryName && w.available)
+        .where((w) => w.category == resolvedCategory && w.available)
         .toList();
     if (available.isNotEmpty) {
       setState(() {
         _selectedWorker = available.first;
+        _bookingContext = {
+          'workerType': resolvedCategory,
+          'categoryId': categoryName.toLowerCase(),
+          'address': _selectedAddressIndex < _addresses.length
+              ? _addresses[_selectedAddressIndex].address
+              : '',
+        };
         _currentScreen = 'booking';
       });
     } else {
@@ -613,6 +622,26 @@ class _AppRootState extends State<AppRoot> {
         const SnackBar(content: Text('No workers available at the moment')),
       );
     }
+  }
+
+  String _categoryNameFromIdOrName(String idOrName) {
+    const map = {
+      'plumber': 'Plumber',
+      'electrician': 'Electrician',
+      'mason': 'Mason',
+      'carpenter': 'Carpenter',
+      'painter': 'Painter',
+      'gardener': 'Gardener',
+      'cleaner': 'Cleaner',
+      'ac-technician': 'AC Technician',
+      'mechanic': 'Mechanic',
+      'welder': 'Welder',
+      'tiler': 'Tiler',
+      'roofer': 'Roofer',
+    };
+
+    final normalized = idOrName.toLowerCase();
+    return map[normalized] ?? idOrName;
   }
 
   @override
@@ -676,35 +705,21 @@ class _AppRootState extends State<AppRoot> {
       );
     }
 
-    if (_activeTab == 'favorites') {
+    if (_activeTab == 'chat') {
       return _buildStatefulRoute(
-        screenKey: 'favorites',
-        title: _txt('Favorites', 'ප්‍රියතම', 'பிடித்தவை'),
-        forceEmpty: _favorites.isEmpty,
+        screenKey: 'chat',
+        title: _txt('Chat', 'සංවාද', 'அரட்டை'),
+        forceEmpty: false,
         emptyMessage: _txt(
-          'No favorites yet. Save worker categories to quickly book later.',
-          'තවම ප්‍රියතම නැත. ඉක්මනින් වෙන් කිරීම සඳහා සේවක වර්ග සුරකින්න.',
-          'இதுவரை பிடித்தவை இல்லை. பின்னர் விரைவாக முன்பதிவு செய்ய வகைகளை சேமிக்கவும்.',
+          'No messages yet.',
+          'තවම පණිවිඩ නොමැත.',
+          'இதுவரை செய்திகள் இல்லை.',
         ),
-        emptyActionLabel: _txt(
-          'Browse Workers',
-          'සේවකයන් බලන්න',
-          'பணியாளர்களை பார்க்க',
-        ),
-        onEmptyAction: () => setState(() => _currentScreen = 'workerType'),
         builder: () => _withSelectedLocale(
-          FavoriteScreen(
+          ChatScreen(
             theme: _theme,
             language: _selectedLanguage,
-            favorites: _favorites,
             onBack: () => setState(() => _activeTab = 'home'),
-            onRemoveFavorite: (id) => setState(
-              () => _favorites = _favorites.where((f) => f.id != id).toList(),
-            ),
-            onSelectFavorite: (cat) {
-              setState(() => _activeTab = 'home');
-              _selectCategory(cat);
-            },
           ),
         ),
       );
@@ -915,7 +930,7 @@ class _AppRootState extends State<AppRoot> {
           onNotificationPress: () =>
               setState(() => _currentScreen = 'notifications'),
           onSetActiveTab: (tab) => setState(() => _activeTab = tab),
-          onGoToFavorites: () => setState(() => _activeTab = 'favorites'),
+          onGoToChat: () => setState(() => _activeTab = 'chat'),
           onGoToSettings: () => setState(() => _activeTab = 'settings'),
           onNavigateSearch: (action) {
             switch (action) {
@@ -925,8 +940,8 @@ class _AppRootState extends State<AppRoot> {
                 setState(() => _currentScreen = 'workerType');
               case 'bookings':
                 setState(() => _activeTab = 'bookings');
-              case 'favorites':
-                setState(() => _activeTab = 'favorites');
+              case 'chat':
+                setState(() => _activeTab = 'chat');
               case 'notifications':
                 setState(() => _currentScreen = 'notifications');
             }
@@ -954,7 +969,7 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback onBookNow;
   final VoidCallback onNotificationPress;
   final void Function(String) onSetActiveTab;
-  final VoidCallback onGoToFavorites;
+  final VoidCallback onGoToChat;
   final VoidCallback onGoToSettings;
   final void Function(String) onNavigateSearch;
 
@@ -973,7 +988,7 @@ class HomeScreen extends StatefulWidget {
     required this.onBookNow,
     required this.onNotificationPress,
     required this.onSetActiveTab,
-    required this.onGoToFavorites,
+    required this.onGoToChat,
     required this.onGoToSettings,
     required this.onNavigateSearch,
   });
@@ -1048,13 +1063,13 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       {'id': 'nav-bookings', 'label': 'Bookings', 'action': 'bookings'},
       {
-        'id': 'nav-favorites',
+        'id': 'nav-chat',
         'label': lang == 'en'
-            ? 'Favorites'
+            ? 'Chat'
             : lang == 'si'
-            ? 'ප්‍රියතම'
-            : 'பிடித்தவை',
-        'action': 'favorites',
+            ? 'සංවාද'
+            : 'அரட்டை',
+        'action': 'chat',
       },
       {
         'id': 'nav-notifications',
@@ -1383,62 +1398,77 @@ class _HomeScreenState extends State<HomeScreen> {
     final lang = widget.language;
     final t = widget.t;
 
-    return Scaffold(
-      backgroundColor: theme.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildTopSection(theme, lang, t),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-                      child: Text(
-                        lang == 'en'
-                            ? 'What are you looking for today?'
-                            : lang == 'si'
-                            ? 'අද ඔබ සොයන්නේ කුමක්ද?'
-                            : 'இன்று நீங்கள் என்ன தேடுகிறீர்கள்?',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                          color: theme.textPrimary,
+    return Consumer(
+      builder: (context, ref, _) {
+        final userAsync = ref.watch(dashboardUserProvider);
+        final user = userAsync.valueOrNull;
+
+        return Scaffold(
+          backgroundColor: theme.background,
+          body: SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildTopSection(theme, lang, t, user),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                          child: Text(
+                            lang == 'en'
+                                ? 'What are you looking for today?'
+                                : lang == 'si'
+                                ? 'අද ඔබ සොයන්නේ කුමක්ද?'
+                                : 'இன்று நீங்கள் என்ன தேடுகிறீர்கள்?',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              color: theme.textPrimary,
+                            ),
+                          ),
                         ),
-                      ),
+                        Divider(
+                          color: theme.border,
+                          height: 1,
+                          thickness: 1,
+                          indent: 16,
+                          endIndent: 16,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildCategoryGrid(theme, lang),
+                        Divider(
+                          color: theme.border,
+                          height: 1,
+                          thickness: 1,
+                          indent: 16,
+                          endIndent: 16,
+                        ),
+                        _buildBookNowButton(lang),
+                        const SizedBox(height: 32),
+                      ],
                     ),
-                    Divider(
-                      color: theme.border,
-                      height: 1,
-                      thickness: 1,
-                      indent: 16,
-                      endIndent: 16,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildCategoryGrid(theme, lang),
-                    Divider(
-                      color: theme.border,
-                      height: 1,
-                      thickness: 1,
-                      indent: 16,
-                      endIndent: 16,
-                    ),
-                    _buildBookNowButton(lang),
-                    const SizedBox(height: 32),
-                  ],
+                  ),
                 ),
-              ),
+                _buildBottomNav(theme, lang, t),
+              ],
             ),
-            _buildBottomNav(theme, lang, t),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildTopSection(AppTheme theme, String lang, AppTranslations t) {
+  Widget _buildTopSection(
+    AppTheme theme,
+    String lang,
+    AppTranslations t,
+    dynamic user,
+  ) {
+    final String userName = user?.name ?? 'User';
+    final int unreadCount = user?.unreadNotifications ?? 0;
+
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
@@ -1494,7 +1524,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${t.goodMorning} Jehan!',
+                          '${t.goodMorning} $userName!',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 24,
@@ -1523,12 +1553,45 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: Colors.white.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: IconButton(
-                      onPressed: widget.onNotificationPress,
-                      icon: const Icon(
-                        Icons.notifications_outlined,
-                        color: Colors.white,
-                      ),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        IconButton(
+                          onPressed: widget.onNotificationPress,
+                          icon: const Icon(
+                            Icons.notifications_outlined,
+                            color: Colors.white,
+                          ),
+                        ),
+                        if (unreadCount > 0)
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEF4444),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 16,
+                                minHeight: 16,
+                              ),
+                              child: Text(
+                                unreadCount > 9 ? '9+' : '$unreadCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -1545,19 +1608,31 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(width: 4),
                     Flexible(
-                      child: Text(
-                        _addressDisplayText.isEmpty
-                            ? (lang == 'en'
-                                  ? 'Select delivery location'
-                                  : lang == 'si'
-                                  ? 'ස්ථානය තෝරන්න'
-                                  : 'இடத்தைத் தேர்ந்தெடுக்கவும்')
-                            : '$_addressDisplayText...▼',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _addressDisplayText.isEmpty
+                                  ? (lang == 'en'
+                                        ? 'Select delivery location'
+                                        : lang == 'si'
+                                        ? 'ස්ථානය තෝරන්න'
+                                        : 'இடத்தைத் தேர்ந்தெடுக்கவும்')
+                                  : _addressDisplayText,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.keyboard_arrow_down,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -1614,35 +1689,39 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _buildHeaderChip(
-                    icon: Icons.room_service_outlined,
-                    label: lang == 'en'
-                        ? '12+ services'
-                        : lang == 'si'
-                        ? 'සේවා 12+'
-                        : '12+ சேவைகள்',
-                  ),
-                  _buildHeaderChip(
-                    icon: Icons.location_on_outlined,
-                    label: lang == 'en'
-                        ? '${widget.addresses.length} saved places'
-                        : lang == 'si'
-                        ? 'ස්ථාන ${widget.addresses.length}'
-                        : '${widget.addresses.length} சேமித்த இடங்கள்',
-                  ),
-                  _buildHeaderChip(
-                    icon: Icons.local_offer_outlined,
-                    label: lang == 'en'
-                        ? 'Fast response'
-                        : lang == 'si'
-                        ? 'වේගවත් ප්‍රතිචාර'
-                        : 'வேகமான பதில்',
-                  ),
-                ],
+              SizedBox(
+                height: 34,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    _buildHeaderChip(
+                      icon: Icons.room_service_outlined,
+                      label: lang == 'en'
+                          ? '12+ services'
+                          : lang == 'si'
+                          ? 'සේවා 12+'
+                          : '12+ சேவைகள்',
+                    ),
+                    const SizedBox(width: 8),
+                    _buildHeaderChip(
+                      icon: Icons.location_on_outlined,
+                      label: lang == 'en'
+                          ? '${widget.addresses.length} saved places'
+                          : lang == 'si'
+                          ? 'ස්ථාන ${widget.addresses.length}'
+                          : '${widget.addresses.length} சேமித்த இடங்கள்',
+                    ),
+                    const SizedBox(width: 8),
+                    _buildHeaderChip(
+                      icon: Icons.flash_on_outlined,
+                      label: lang == 'en'
+                          ? 'Fast response'
+                          : lang == 'si'
+                          ? 'වේගවත් ප්‍රතිචාර'
+                          : 'வேகமான பதில்',
+                    ),
+                  ],
+                ),
               ),
               if (_searchFocused && _searchQuery.trim().isNotEmpty)
                 _buildSearchSuggestions(theme, lang),
@@ -1797,65 +1876,52 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCategoryGrid(AppTheme theme, String lang) {
+    final categories = [
+      {'id': 'plumber', 'name': 'Plumber', 'icon': 'plumber'},
+      {'id': 'electrician', 'name': 'Electrician', 'icon': 'electrician'},
+      {'id': 'mason', 'name': 'Mason', 'icon': 'mason'},
+      {'id': 'carpenter', 'name': 'Carpenter', 'icon': 'carpenter'},
+      {'id': 'painter', 'name': 'Painter', 'icon': 'painter'},
+      {'id': 'gardener', 'name': 'Gardener', 'icon': 'gardener'},
+      {'id': 'cleaner', 'name': 'Cleaner', 'icon': 'cleaner'},
+      {'id': 'more', 'name': 'More', 'icon': 'more'},
+    ];
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: [
-          CategoryCircle(
-            label: getCategoryTranslation('Plumber', lang),
-            icon: 'plumber',
-            theme: theme,
-            onPress: () => widget.onSelectCategory('Plumber'),
-          ),
-          CategoryCircle(
-            label: getCategoryTranslation('Electrician', lang),
-            icon: 'electrician',
-            theme: theme,
-            onPress: () => widget.onSelectCategory('Electrician'),
-          ),
-          CategoryCircle(
-            label: getCategoryTranslation('Mason', lang),
-            icon: 'mason',
-            theme: theme,
-            onPress: () => widget.onSelectCategory('Mason'),
-          ),
-          CategoryCircle(
-            label: getCategoryTranslation('Carpenter', lang),
-            icon: 'carpenter',
-            theme: theme,
-            onPress: () => widget.onSelectCategory('Carpenter'),
-          ),
-          CategoryCircle(
-            label: getCategoryTranslation('Painter', lang),
-            icon: 'painter',
-            theme: theme,
-            onPress: () => widget.onSelectCategory('Painter'),
-          ),
-          CategoryCircle(
-            label: getCategoryTranslation('Gardener', lang),
-            icon: 'gardener',
-            theme: theme,
-            onPress: () => widget.onSelectCategory('Gardener'),
-          ),
-          CategoryCircle(
-            label: getCategoryTranslation('Cleaner', lang),
-            icon: 'cleaner',
-            theme: theme,
-            onPress: () => widget.onSelectCategory('Cleaner'),
-          ),
-          CategoryCircle(
-            label: lang == 'en'
-                ? 'More'
-                : lang == 'si'
-                ? 'තවත්'
-                : 'மேலும்',
-            isMore: true,
-            theme: theme,
-            onPress: widget.onShowCategories,
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final crossAxisCount = constraints.maxWidth >= 900 ? 5 : 4;
+          return GridView.count(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 0.75,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: categories.map((item) {
+              if (item['id'] == 'more') {
+                return CategoryCircle(
+                  label: lang == 'en'
+                      ? 'More'
+                      : lang == 'si'
+                      ? 'තවත්'
+                      : 'மேலும்',
+                  isMore: true,
+                  theme: theme,
+                  onPress: widget.onShowCategories,
+                );
+              }
+
+              return CategoryCircle(
+                label: getCategoryTranslation(item['name']!, lang),
+                icon: item['icon'],
+                theme: theme,
+                onPress: () => widget.onSelectCategory(item['id']!),
+              );
+            }).toList(),
+          );
+        },
       ),
     );
   }
@@ -1931,59 +1997,57 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBottomNav(AppTheme theme, String lang, AppTranslations t) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.tabBarBackground,
-        border: Border(top: BorderSide(color: theme.border)),
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _TabButton(
-            icon: widget.activeTab == 'home' ? Icons.home : Icons.home_outlined,
-            label: t.homeTab,
-            active: widget.activeTab == 'home',
-            theme: theme,
-            onTap: () => widget.onSetActiveTab('home'),
-          ),
-          _TabButton(
-            icon: widget.activeTab == 'bookings'
-                ? Icons.calendar_today
-                : Icons.calendar_today_outlined,
-            label: t.bookingsTab,
-            active: widget.activeTab == 'bookings',
-            theme: theme,
-            onTap: () => widget.onSetActiveTab('bookings'),
-          ),
-          _TabButton(
-            icon: widget.activeTab == 'favorites'
-                ? Icons.star
-                : Icons.star_outline,
-            label: lang == 'en'
-                ? 'Favorites'
-                : lang == 'si'
-                ? 'ප්‍රියතම'
-                : 'பிடித்தவை',
-            active: widget.activeTab == 'favorites',
-            theme: theme,
-            onTap: widget.onGoToFavorites,
-          ),
-          _TabButton(
-            icon: widget.activeTab == 'settings'
-                ? Icons.settings
-                : Icons.settings_outlined,
-            label: lang == 'en'
-                ? 'Settings'
-                : lang == 'si'
-                ? 'සැකසීම්'
-                : 'அமைப்புகள்',
-            active: widget.activeTab == 'settings',
-            theme: theme,
-            onTap: widget.onGoToSettings,
-          ),
-        ],
-      ),
+    final selectedIndex = switch (widget.activeTab) {
+      'home' => 0,
+      'bookings' => 1,
+      'chat' => 2,
+      'settings' => 3,
+      _ => 0,
+    };
+
+    return NavigationBar(
+      selectedIndex: selectedIndex,
+      onDestinationSelected: (index) {
+        if (index == 0) {
+          widget.onSetActiveTab('home');
+        } else if (index == 1) {
+          widget.onSetActiveTab('bookings');
+        } else if (index == 2) {
+          widget.onGoToChat();
+        } else if (index == 3) {
+          widget.onGoToSettings();
+        }
+      },
+      destinations: [
+        NavigationDestination(
+          icon: const Icon(Icons.home_outlined),
+          selectedIcon: const Icon(Icons.home),
+          label: t.homeTab,
+        ),
+        NavigationDestination(
+          icon: const Icon(Icons.calendar_today_outlined),
+          selectedIcon: const Icon(Icons.calendar_today),
+          label: t.bookingsTab,
+        ),
+        NavigationDestination(
+          icon: const Icon(Icons.chat_bubble_outline),
+          selectedIcon: const Icon(Icons.chat_bubble),
+          label: lang == 'en'
+              ? 'Chat'
+              : lang == 'si'
+              ? 'සංවාද'
+              : 'அரட்டை',
+        ),
+        NavigationDestination(
+          icon: const Icon(Icons.settings_outlined),
+          selectedIcon: const Icon(Icons.settings),
+          label: lang == 'en'
+              ? 'Settings'
+              : lang == 'si'
+              ? 'සැකසීම්'
+              : 'அமைப்புகள்',
+        ),
+      ],
     );
   }
 }
@@ -2237,54 +2301,6 @@ class _LocationModalSheetState extends State<_LocationModalSheet> {
 }
 
 // ============================================================
-// TAB BUTTON
-// ============================================================
-class _TabButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-  final AppTheme theme;
-  final VoidCallback onTap;
-
-  const _TabButton({
-    required this.icon,
-    required this.label,
-    required this.active,
-    required this.theme,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 24,
-              color: active ? theme.tabBarActive : theme.tabBarInactive,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: active ? FontWeight.w600 : FontWeight.w500,
-                color: active ? theme.tabBarActive : theme.tabBarInactive,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================
 // CATEGORY CIRCLE
 // ============================================================
 class CategoryCircle extends StatelessWidget {
@@ -2384,24 +2400,18 @@ class CategoryCircle extends StatelessWidget {
 }
 
 // ============================================================
-// FAVORITE SCREEN
+// CHAT SCREEN
 // ============================================================
-class FavoriteScreen extends StatelessWidget {
+class ChatScreen extends StatelessWidget {
   final AppTheme theme;
   final String language;
-  final List<Favorite> favorites;
   final VoidCallback onBack;
-  final void Function(int) onRemoveFavorite;
-  final void Function(String) onSelectFavorite;
 
-  const FavoriteScreen({
+  const ChatScreen({
     super.key,
     required this.theme,
     required this.language,
-    required this.favorites,
     required this.onBack,
-    required this.onRemoveFavorite,
-    required this.onSelectFavorite,
   });
 
   @override
@@ -2413,67 +2423,37 @@ class FavoriteScreen extends StatelessWidget {
         foregroundColor: Colors.white,
         title: Text(
           language == 'en'
-              ? 'Favorites'
+              ? 'Chat'
               : language == 'si'
-              ? 'ප්‍රියතම'
-              : 'பிடித்தவை',
+              ? 'සංවාද'
+              : 'அரட்டை',
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: onBack,
         ),
       ),
-      body: favorites.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.star_outline,
-                    size: 64,
-                    color: theme.textSecondary,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    language == 'en'
-                        ? 'No favorites yet'
-                        : language == 'si'
-                        ? 'ප්‍රියතම නැත'
-                        : 'பிடித்தவை இல்லை',
-                    style: TextStyle(fontSize: 18, color: theme.textSecondary),
-                  ),
-                ],
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: favorites.length,
-              itemBuilder: (_, i) {
-                final f = favorites[i];
-                return Card(
-                  color: theme.cardBackground,
-                  child: ListTile(
-                    leading: const Icon(Icons.star, color: Colors.amber),
-                    title: Text(
-                      f.name,
-                      style: TextStyle(
-                        color: theme.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      f.category,
-                      style: TextStyle(color: theme.textSecondary),
-                    ),
-                    onTap: () => onSelectFavorite(f.category),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      onPressed: () => onRemoveFavorite(f.id),
-                    ),
-                  ),
-                );
-              },
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.chat_bubble_outline,
+              size: 64,
+              color: theme.textSecondary,
             ),
+            const SizedBox(height: 16),
+            Text(
+              language == 'en'
+                  ? 'No chats yet'
+                  : language == 'si'
+                  ? 'තවම සංවාද නොමැත'
+                  : 'இதுவரை அரட்டைகள் இல்லை',
+              style: TextStyle(fontSize: 18, color: theme.textSecondary),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
