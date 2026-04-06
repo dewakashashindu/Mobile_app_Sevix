@@ -9,6 +9,7 @@ class LoginScreen extends StatefulWidget {
   final String selectedLanguage;
   final VoidCallback onLoginSuccess;
   final VoidCallback onNavigateToSignup;
+  final bool biometricAvailable;
   final bool biometricEnabled;
   final Future<bool> Function() onBiometricLogin;
 
@@ -18,6 +19,7 @@ class LoginScreen extends StatefulWidget {
     required this.selectedLanguage,
     required this.onLoginSuccess,
     required this.onNavigateToSignup,
+    required this.biometricAvailable,
     required this.biometricEnabled,
     required this.onBiometricLogin,
   });
@@ -302,10 +304,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
                     _buildLoginButton(theme),
-                    if (widget.biometricEnabled) ...[
-                      const SizedBox(height: 12),
-                      _buildBiometricButton(theme),
-                    ],
+                    const SizedBox(height: 12),
+                    _buildBiometricButton(theme),
                     const SizedBox(height: 28),
                     _buildDivider(theme),
                     const SizedBox(height: 20),
@@ -481,10 +481,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildBiometricButton(dynamic theme) {
-    if (!widget.biometricEnabled) {
-      return const SizedBox.shrink();
-    }
-
     return SizedBox(
       width: double.infinity,
       height: 52,

@@ -347,6 +347,7 @@ class _AppRootState extends State<AppRoot> {
     'messages': true,
   };
   bool _biometricEnabled = false;
+  bool _biometricAvailable = false;
 
   List<AppAddress> _addresses = const [
     AppAddress(
@@ -388,16 +389,18 @@ class _AppRootState extends State<AppRoot> {
   ).read(biometricServiceProvider);
 
   Future<void> _loadBiometricState() async {
+    final available = await _biometricService.isBiometricAvailable();
     final enabled = await _biometricService.isBiometricEnabled();
     if (!mounted) {
       return;
     }
     setState(() {
+      _biometricAvailable = available;
       _biometricEnabled = enabled;
     });
   }
 
-  Future<void> _toggleBiometric(bool value) async {
+  Future<bool> _toggleBiometric(bool value) async {
     if (value) {
       final available = await _biometricService.isBiometricAvailable();
       if (!available) {
@@ -410,17 +413,18 @@ class _AppRootState extends State<AppRoot> {
             ),
           );
         }
-        return;
+        return false;
       }
     }
 
     await _biometricService.setBiometricEnabled(value);
     if (!mounted) {
-      return;
+      return false;
     }
     setState(() {
       _biometricEnabled = value;
     });
+    return true;
   }
 
   Future<bool> _handleBiometricLogin() async {
@@ -650,6 +654,7 @@ class _AppRootState extends State<AppRoot> {
             selectedLanguage: _selectedLanguage,
             onLoginSuccess: () => setState(() => _isLoggedIn = true),
             onNavigateToSignup: () => setState(() => _showSignup = true),
+            biometricAvailable: _biometricAvailable,
             biometricEnabled: _biometricEnabled,
             onBiometricLogin: _handleBiometricLogin,
           ),

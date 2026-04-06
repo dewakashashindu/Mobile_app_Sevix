@@ -27,7 +27,7 @@ class SettingsScreen extends StatefulWidget {
   final Map<String, bool> notificationSettings;
   final ValueChanged<Map<String, bool>> onNotificationSettingsChange;
   final bool biometricEnabled;
-  final Future<void> Function(bool) onBiometricToggle;
+  final Future<bool> Function(bool) onBiometricToggle;
   final VoidCallback onLogout;
   final VoidCallback onDeleteAccount;
 
@@ -836,13 +836,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         trailing: Switch(
                           value: _biometricEnabled,
                           onChanged: (value) async {
-                            await widget.onBiometricToggle(value);
+                            setState(() => _biometricEnabled = value);
+                            final success = await widget.onBiometricToggle(
+                              value,
+                            );
                             if (!mounted) {
                               return;
                             }
-                            setState(
-                              () => _biometricEnabled = widget.biometricEnabled,
-                            );
+                            if (!success) {
+                              setState(() => _biometricEnabled = !value);
+                            }
                           },
                         ),
                       ),
