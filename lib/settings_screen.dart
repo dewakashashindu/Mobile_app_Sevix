@@ -11,6 +11,10 @@ class SettingsScreen extends StatefulWidget {
     required this.currentTheme,
     required this.onLanguageChange,
     required this.onThemeChange,
+    required this.notificationSettings,
+    required this.onNotificationSettingsChange,
+    required this.biometricEnabled,
+    required this.onBiometricToggle,
     required this.onLogout,
     required this.onDeleteAccount,
   });
@@ -20,6 +24,10 @@ class SettingsScreen extends StatefulWidget {
   final ThemeModeCode currentTheme; // light | dark
   final ValueChanged<LanguageCode> onLanguageChange;
   final ValueChanged<ThemeModeCode> onThemeChange;
+  final Map<String, bool> notificationSettings;
+  final ValueChanged<Map<String, bool>> onNotificationSettingsChange;
+  final bool biometricEnabled;
+  final Future<void> Function(bool) onBiometricToggle;
   final VoidCallback onLogout;
   final VoidCallback onDeleteAccount;
 
@@ -45,9 +53,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _confirmPasswordController =
       TextEditingController();
 
-  bool _emailNotifications = true;
-  bool _pushNotifications = true;
-  bool _smsNotifications = false;
+  late Map<String, bool> _notificationSettings;
+  late bool _biometricEnabled;
+
+  static const _notificationTypeOrder = [
+    'newBids',
+    'workerAccepted',
+    'jobUpdates',
+    'messages',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _notificationSettings = Map<String, bool>.from(widget.notificationSettings);
+    _biometricEnabled = widget.biometricEnabled;
+  }
+
+  @override
+  void didUpdateWidget(covariant SettingsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.notificationSettings != widget.notificationSettings) {
+      _notificationSettings = Map<String, bool>.from(
+        widget.notificationSettings,
+      );
+    }
+    if (oldWidget.biometricEnabled != widget.biometricEnabled) {
+      _biometricEnabled = widget.biometricEnabled;
+    }
+  }
 
   @override
   void dispose() {
@@ -120,6 +154,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _updateNotificationSetting(String key, bool value) {
+    setState(() {
+      _notificationSettings[key] = value;
+    });
+    widget.onNotificationSettingsChange(
+      Map<String, bool>.from(_notificationSettings),
+    );
+  }
+
+  String _notificationTypeLabel(String key) {
+    switch (key) {
+      case 'newBids':
+        return _txt('New Bids', 'නව ලංසු', 'புதிய பிட்கள்');
+      case 'workerAccepted':
+        return _txt(
+          'Worker Accepted',
+          'සේවකයා පිළිගත්තා',
+          'பணியாளர் ஏற்றுக்கொண்டார்',
+        );
+      case 'jobUpdates':
+        return _txt('Job Updates', 'රැකියා යාවත්කාලීන', 'வேலை புதுப்பிப்புகள்');
+      case 'messages':
+        return _txt('Messages', 'පණිවිඩ', 'செய்திகள்');
+      default:
+        return key;
+    }
+  }
+
+  IconData _notificationTypeIcon(String key) {
+    switch (key) {
+      case 'newBids':
+        return Icons.gavel_outlined;
+      case 'workerAccepted':
+        return Icons.verified_user_outlined;
+      case 'jobUpdates':
+        return Icons.build_circle_outlined;
+      case 'messages':
+        return Icons.chat_bubble_outline;
+      default:
+        return Icons.notifications_outlined;
+    }
   }
 
   Future<void> _openLanguagePicker() async {
@@ -239,9 +316,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 _sheetTitle(
                   _txt(
-                    'Edit Information',
-                    'තොරතුරු සංස්කරණය',
-                    'தகவலைத் திருத்து',
+                    'Edit Profile',
+                    'පැතිකඩ සංස්කරණය',
+                    'சுயவிவரத்தைத் திருத்து',
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -718,9 +795,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _settingTile(
                         icon: Icons.edit_outlined,
                         label: _txt(
-                          'Edit Information',
-                          'තොරතුරු සංස්කරණය',
-                          'தகவலைத் திருத்து',
+                          'Edit Profile',
+                          'පැතිකඩ සංස්කරණය',
+                          'சுயவிவரத்தைத் திருத்து',
                         ),
                         value:
                             '${_nameController.text}, ${_emailController.text}',
@@ -741,6 +818,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           'உங்கள் கடவுச்சொல்லை மாற்றவும்',
                         ),
                         onTap: _openResetPasswordModal,
+                      ),
+                      _divider(),
+                      _settingTile(
+                        icon: Icons.fingerprint,
+                        iconColor: const Color(0xFF27AE60),
+                        label: _txt(
+                          'Biometric Login',
+                          'ජෛව සත්‍යාපන පිවිසුම',
+                          'பயோமெட்ரிக் உள்நுழைவு',
+                        ),
+                        value: _txt(
+                          'Use Face ID / Fingerprint',
+                          'Face ID / ඇඟිලි සලකුණු භාවිතා කරන්න',
+                          'Face ID / விரல் ரேகையை பயன்படுத்தவும்',
+                        ),
+                        trailing: Switch(
+                          value: _biometricEnabled,
+                          onChanged: (value) async {
+                            await widget.onBiometricToggle(value);
+                            if (!mounted) {
+                              return;
+                            }
+                            setState(
+                              () => _biometricEnabled = widget.biometricEnabled,
+                            );
+                          },
+                        ),
                       ),
                     ],
                   ),
@@ -768,49 +872,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _card(
                     title: _txt('Notifications', 'දැනුම්දීම්', 'அறிவிப்புகள்'),
                     icon: Icons.notifications,
-                    children: [
-                      _settingTile(
-                        icon: Icons.email_outlined,
-                        label: _txt(
-                          'Email Notifications',
-                          'විද්‍යුත් තැපැල් දැනුම්දීම්',
-                          'மின்னஞ்சல் அறிவிப்புகள்',
-                        ),
-                        trailing: Switch(
-                          value: _emailNotifications,
-                          onChanged: (value) =>
-                              setState(() => _emailNotifications = value),
-                        ),
-                      ),
-                      _divider(),
-                      _settingTile(
-                        icon: Icons.phone_android,
-                        label: _txt(
-                          'Push Notifications',
-                          'තල්ලු දැනුම්දීම්',
-                          'புஷ் அறிவிப்புகள்',
-                        ),
-                        trailing: Switch(
-                          value: _pushNotifications,
-                          onChanged: (value) =>
-                              setState(() => _pushNotifications = value),
-                        ),
-                      ),
-                      _divider(),
-                      _settingTile(
-                        icon: Icons.chat_bubble_outline,
-                        label: _txt(
-                          'SMS Notifications',
-                          'SMS දැනුම්දීම්',
-                          'SMS அறிவிப்புகள்',
-                        ),
-                        trailing: Switch(
-                          value: _smsNotifications,
-                          onChanged: (value) =>
-                              setState(() => _smsNotifications = value),
-                        ),
-                      ),
-                    ],
+                    children: List.generate(
+                      _notificationTypeOrder.length * 2 - 1,
+                      (index) {
+                        if (index.isOdd) {
+                          return _divider();
+                        }
+                        final key = _notificationTypeOrder[index ~/ 2];
+                        return _settingTile(
+                          icon: _notificationTypeIcon(key),
+                          label: _notificationTypeLabel(key),
+                          trailing: Switch(
+                            value: _notificationSettings[key] ?? true,
+                            onChanged: (value) =>
+                                _updateNotificationSetting(key, value),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                   _card(
                     title: _txt('About', 'පිළිබඳව', 'பற்றி'),

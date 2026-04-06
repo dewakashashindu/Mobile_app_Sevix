@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum NotificationType { booking, message, promotion, system }
+enum NotificationType { newBids, workerAccepted, jobUpdates, messages }
 
 class AppNotificationItem {
   const AppNotificationItem({
@@ -40,12 +40,14 @@ class NotificationScreen extends StatefulWidget {
     required this.onBack,
     required this.language,
     required this.currentTheme,
+    required this.notificationSettings,
     required this.translateCategory,
   });
 
   final VoidCallback onBack;
   final String language; // en | si | ta
   final String currentTheme; // light | dark
+  final Map<String, bool> notificationSettings;
   final String Function(String categoryName, String language) translateCategory;
 
   @override
@@ -96,16 +98,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
     _notifications = [
       AppNotificationItem(
         id: '1',
-        type: NotificationType.booking,
+        type: NotificationType.newBids,
         title: _txt(
-          'Booking Confirmed',
-          'වෙන්කිරීම තහවුරු කරන ලදී',
-          'முன்பதிவு உறுதி',
+          'New Bid Received',
+          'නව ලංසුවක් ලැබුණි',
+          'புதிய பிட் கிடைத்தது',
         ),
         message: _txt(
-          'Your booking with Nimal Perera has been confirmed for Dec 25, 10:00 AM',
-          'නිමල් පෙරේරා සමඟ ඔබගේ වෙන්කිරීම දෙසැම්බර් 25, පෙ.ව. 10:00 සඳහා තහවුරු කර ඇත',
-          'நிமால் பெரேரா உடனான உங்கள் முன்பதிவு டிசம்பர் 25, காலை 10:00 க்கு உறுதிப்படுத்தப்பட்டது',
+          'Nimal Perera submitted a bid for your Plumbing request.',
+          'ඔබගේ නළ සේවා ඉල්ලීම සඳහා නිමල් පෙරේරා ලංසුවක් ඉදිරිපත් කර ඇත.',
+          'உங்கள் பிளம்பிங் கோரிக்கைக்கு நிமால் பெரேரா பிட் சமர்ப்பித்துள்ளார்.',
         ),
         time: _txt('2 hours ago', 'පැය 2කට පෙර', '2 மணி நேரத்திற்கு முன்'),
         isRead: false,
@@ -113,28 +115,33 @@ class _NotificationScreenState extends State<NotificationScreen> {
       ),
       AppNotificationItem(
         id: '2',
-        type: NotificationType.message,
-        title: _txt('New Message', 'නව පණිවිඩය', 'புதிய செய்தி'),
+        type: NotificationType.workerAccepted,
+        title: _txt(
+          'Worker Accepted',
+          'සේවකයා පිළිගත්තා',
+          'பணியாளர் ஏற்றுக்கொண்டார்',
+        ),
         message: _txt(
-          'Sunil Edirisinghe: I will arrive at your location in 15 minutes',
-          'සුනිල් එදිරිසිංහ: මම විනාඩි 15කින් ඔබගේ ස්ථානයට පැමිණෙමි',
-          'சுனில் எதிரிசிங்ஹ: நான் 15 நிமிடங்களில் உங்கள் இடத்திற்கு வருவேன்',
+          'Sunil Edirisinghe accepted your Electrical job and is preparing to arrive.',
+          'සුනිල් එදිරිසිංහ ඔබගේ විදුලි වැඩ ඉල්ලීම පිළිගෙන පැමිණීමට සූදානම් වෙයි.',
+          'சுனில் எதிரிசிங்ஹ உங்கள் மின்சார வேலையை ஏற்று வரத் தயாராகிறார்.',
         ),
         time: _txt('4 hours ago', 'පැය 4කට පෙර', '4 மணி நேரத்திற்கு முன்'),
         isRead: false,
+        workerCategory: 'Electrician',
       ),
       AppNotificationItem(
         id: '3',
-        type: NotificationType.booking,
+        type: NotificationType.jobUpdates,
         title: _txt(
-          'Booking Completed',
-          'වෙන්කිරීම සම්පූර්ණයි',
-          'முன்பதிவு முடிந்தது',
+          'Job Update',
+          'රැකියා යාවත්කාලීන කිරීම',
+          'வேலை புதுப்பிப்பு',
         ),
         message: _txt(
-          'Your service with Kamal Silva has been completed. Please rate your experience',
-          'කමල් සිල්වා සමඟ ඔබගේ සේවාව සම්පූර්ණ කර ඇත. කරුණාකර ඔබගේ අත්දැකීම අගය කරන්න',
-          'கமல் சில்வா உடனான உங்கள் சேவை முடிந்துவிட்டது. தயவுசெய்து உங்கள் அனுபவத்தை மதிப்பிடுங்கள்',
+          'Kamal Silva marked your Masonry job as completed. Please review the work.',
+          'කමල් සිල්වා ඔබගේ මැසන් වැඩය සම්පූර්ණ කළ ලෙස සලකුණු කර ඇත. කරුණාකර කාර්යය සමාලෝචනය කරන්න.',
+          'கமல் சில்வா உங்கள் மேசன்ரி வேலை முடிந்ததாக குறித்துள்ளார். தயவுசெய்து பணியை மதிப்பாய்வு செய்யவும்.',
         ),
         time: _txt('Yesterday', 'ඊයේ', 'நேற்று'),
         isRead: true,
@@ -142,46 +149,57 @@ class _NotificationScreenState extends State<NotificationScreen> {
       ),
       AppNotificationItem(
         id: '4',
-        type: NotificationType.promotion,
-        title: _txt(
-          '🎉 Special Offer!',
-          '🎉 විශේෂ දීමනාව!',
-          '🎉 சிறப்பு சலுகை!',
-        ),
+        type: NotificationType.messages,
+        title: _txt('New Message', 'නව පණිවිඩය', 'புதிய செய்தி'),
         message: _txt(
-          'Get 20% off on your next booking. Use code: SEVIX20',
-          'ඔබගේ ඊළඟ වෙන්කිරීමෙන් 20% ක් වට්ටම් ලබා ගන්න. කේතය භාවිතා කරන්න: SEVIX20',
-          'உங்கள் அடுத்த முன்பதிவில் 20% தள்ளுபடி பெறுங்கள். குறியீட்டைப் பயன்படுத்தவும்: SEVIX20',
+          'Ruwan Jayawardena: I have reached the location and started the work.',
+          'රුවන් ජයවර්ධන: මම ස්ථානයට පැමිණ වැඩ ආරම්භ කර ඇත.',
+          'ருவன் ஜயவர்தன: நான் இடத்தை அடைந்து வேலையை தொடங்கிவிட்டேன்.',
         ),
         time: _txt('Yesterday', 'ඊයේ', 'நேற்று'),
-        isRead: true,
+        isRead: false,
+        workerCategory: 'Mason',
       ),
       AppNotificationItem(
         id: '5',
-        type: NotificationType.system,
+        type: NotificationType.newBids,
         title: _txt(
-          'Payment Successful',
-          'ගෙවීම සාර්ථකයි',
-          'பணம் செலுத்தல் வெற்றி',
+          'Another Bid Received',
+          'තවත් ලංසුවක් ලැබුණි',
+          'மற்றொரு பிட் கிடைத்தது',
         ),
         message: _txt(
-          'Rs. 4,500 has been paid to Kamal Silva for completed service',
-          'සම්පූර්ණ කළ සේවාව සඳහා රු. 4,500 ක් කමල් සිල්වාට ගෙවා ඇත',
-          'முடிக்கப்பட்ட சேவைக்காக ரூ. 4,500 கமல் சில்வாவுக்கு செலுத்தப்பட்டது',
+          'Anil Fernando submitted a competitive bid for your Plumbing request.',
+          'ඔබගේ නළ සේවා ඉල්ලීම සඳහා අනිල් ප්‍රනාන්දු තරඟකාරී ලංසුවක් ඉදිරිපත් කර ඇත.',
+          'உங்கள் பிளம்பிங் கோரிக்கைக்கு அனில் பெர்னாண்டோ போட்டித்திறன் கொண்ட பிட் சமர்ப்பித்துள்ளார்.',
         ),
         time: _txt('2 days ago', 'දින 2කට පෙර', '2 நாட்களுக்கு முன்'),
         isRead: true,
+        workerCategory: 'Plumber',
       ),
     ];
   }
 
   List<AppNotificationItem> get _filteredNotifications {
-    if (_selectedFilter == 'all') {
-      return _notifications;
-    }
-    return _notifications
-        .where((item) => item.type.name == _selectedFilter)
+    final enabledTypes = <NotificationType>{
+      if (widget.notificationSettings['newBids'] ?? true)
+        NotificationType.newBids,
+      if (widget.notificationSettings['workerAccepted'] ?? true)
+        NotificationType.workerAccepted,
+      if (widget.notificationSettings['jobUpdates'] ?? true)
+        NotificationType.jobUpdates,
+      if (widget.notificationSettings['messages'] ?? true)
+        NotificationType.messages,
+    };
+
+    final visible = _notifications
+        .where((item) => enabledTypes.contains(item.type))
         .toList();
+
+    if (_selectedFilter == 'all') {
+      return visible;
+    }
+    return visible.where((item) => item.type.name == _selectedFilter).toList();
   }
 
   int get _unreadCount => _notifications.where((item) => !item.isRead).length;
@@ -204,27 +222,27 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   IconData _iconForType(NotificationType type) {
     switch (type) {
-      case NotificationType.booking:
-        return Icons.calendar_today;
-      case NotificationType.message:
+      case NotificationType.newBids:
+        return Icons.gavel;
+      case NotificationType.workerAccepted:
+        return Icons.verified_user;
+      case NotificationType.jobUpdates:
+        return Icons.build_circle;
+      case NotificationType.messages:
         return Icons.chat_bubble;
-      case NotificationType.promotion:
-        return Icons.local_offer;
-      case NotificationType.system:
-        return Icons.info;
     }
   }
 
   Color _colorForType(NotificationType type) {
     switch (type) {
-      case NotificationType.booking:
+      case NotificationType.newBids:
         return const Color(0xFF3498DB);
-      case NotificationType.message:
+      case NotificationType.workerAccepted:
         return const Color(0xFF27AE60);
-      case NotificationType.promotion:
-        return const Color(0xFFE74C3C);
-      case NotificationType.system:
+      case NotificationType.jobUpdates:
         return const Color(0xFFF39C12);
+      case NotificationType.messages:
+        return const Color(0xFF9B59B6);
     }
   }
 
@@ -232,14 +250,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
     switch (filter) {
       case 'all':
         return _txt('All', 'සියල්ල', 'அனைத்தும்');
-      case 'booking':
-        return _txt('Bookings', 'වෙන්කිරීම්', 'முன்பதிவுகள்');
-      case 'message':
+      case 'newBids':
+        return _txt('New Bids', 'නව ලංසු', 'புதிய பிட்கள்');
+      case 'workerAccepted':
+        return _txt('Accepted', 'පිළිගත්', 'ஏற்றுக்கொள்ளப்பட்ட');
+      case 'jobUpdates':
+        return _txt('Job Updates', 'රැකියා යාවත්කාලීන', 'வேலை புதுப்பிப்புகள்');
+      case 'messages':
         return _txt('Messages', 'පණිවිඩ', 'செய்திகள்');
-      case 'promotion':
-        return _txt('Offers', 'දීමනා', 'சலுகைகள்');
-      case 'system':
-        return _txt('System', 'පද්ධතිය', 'அமைப்பு');
       default:
         return filter;
     }
@@ -247,7 +265,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const filters = ['all', 'booking', 'message', 'promotion', 'system'];
+    const filters = [
+      'all',
+      'newBids',
+      'workerAccepted',
+      'jobUpdates',
+      'messages',
+    ];
 
     return Scaffold(
       backgroundColor: _theme.background,

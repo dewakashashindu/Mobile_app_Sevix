@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sevix/l10n/app_localizations.dart';
 import 'settings_screen.dart' as separate;
 import 'worker_type_screen.dart' as worker_ui;
@@ -9,9 +10,11 @@ import 'language_select_screen.dart';
 import 'login_screen.dart';
 import 'signup_screen.dart';
 import 'bookings_management_screen.dart';
+import 'services/biometric_service.dart';
+import 'widgets/app_state_views.dart';
 
 void main() {
-  runApp(const SevixApp());
+  runApp(const ProviderScope(child: SevixApp()));
 }
 
 // ============================================================
@@ -330,11 +333,20 @@ class AppRoot extends StatefulWidget {
   State<AppRoot> createState() => _AppRootState();
 }
 
+enum _GlobalScreenState { loading, content, error }
+
 class _AppRootState extends State<AppRoot> {
   bool _isLoggedIn = false;
   bool _showSignup = false;
   String _selectedLanguage = '';
   String _currentTheme = 'light';
+  Map<String, bool> _notificationSettings = {
+    'newBids': true,
+    'workerAccepted': true,
+    'jobUpdates': true,
+    'messages': true,
+  };
+  bool _biometricEnabled = false;
 
   List<AppAddress> _addresses = const [
     AppAddress(
@@ -355,15 +367,206 @@ class _AppRootState extends State<AppRoot> {
 
   Map<String, String> _bookingContext = const {'workerType': '', 'address': ''};
   List<Favorite> _favorites = const [];
-  bool _promoVisible = true;
-  final List<String> _promotions = const [
-    'First job - 10% off',
-    'Free booking today',
-  ];
+  final Map<String, _GlobalScreenState> _screenStates = {};
+  final Map<String, String> _screenErrors = {};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadBiometricState();
+    });
+  }
 
   AppTheme get _theme =>
       _currentTheme == 'dark' ? AppTheme.dark : AppTheme.light;
   AppTranslations get _t => AppTranslations.forLang(_selectedLanguage);
+
+  BiometricService get _biometricService => ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(biometricServiceProvider);
+
+  Future<void> _loadBiometricState() async {
+    final enabled = await _biometricService.isBiometricEnabled();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _biometricEnabled = enabled;
+    });
+  }
+
+  Future<void> _toggleBiometric(bool value) async {
+    if (value) {
+      final available = await _biometricService.isBiometricAvailable();
+      if (!available) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Biometric hardware is not available on this device.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    await _biometricService.setBiometricEnabled(value);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _biometricEnabled = value;
+    });
+  }
+
+  Future<bool> _handleBiometricLogin() async {
+    final enabled = await _biometricService.isBiometricEnabled();
+    if (!enabled) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Biometric login is disabled.')),
+        );
+      }
+      return false;
+    }
+
+    final available = await _biometricService.isBiometricAvailable();
+    if (!available) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Biometrics are not available.')),
+        );
+      }
+      return false;
+    }
+
+    final authenticated = await _biometricService.authenticate(
+      reason: 'Use fingerprint or Face ID to sign in',
+    );
+
+    if (authenticated && mounted) {
+      setState(() {
+        _isLoggedIn = true;
+      });
+    }
+    return authenticated;
+  }
+
+  String _txt(String en, String si, String ta) {
+    switch (_selectedLanguage) {
+      case 'si':
+        return si;
+      case 'ta':
+        return ta;
+      default:
+        return en;
+    }
+  }
+
+  void _primeScreenState(String key) {
+    if (_screenStates.containsKey(key)) {
+      return;
+    }
+    _screenStates[key] = _GlobalScreenState.loading;
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted) {
+        return;
+      }
+      if (_screenStates[key] == _GlobalScreenState.loading) {
+        setState(() {
+          _screenStates[key] = _GlobalScreenState.content;
+        });
+      }
+    });
+  }
+
+  void _retryScreen(String key) {
+    setState(() {
+      _screenErrors.remove(key);
+      _screenStates[key] = _GlobalScreenState.loading;
+    });
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _screenStates[key] = _GlobalScreenState.content;
+      });
+    });
+  }
+
+  Widget _buildStatefulRoute({
+    required String screenKey,
+    required String title,
+    required Widget Function() builder,
+    bool forceEmpty = false,
+    String? emptyMessage,
+    VoidCallback? onEmptyAction,
+    String? emptyActionLabel,
+  }) {
+    _primeScreenState(screenKey);
+    final state = _screenStates[screenKey] ?? _GlobalScreenState.loading;
+
+    if (state == _GlobalScreenState.loading) {
+      return AppLoadingState(title: title);
+    }
+
+    if (state == _GlobalScreenState.error) {
+      return AppErrorState(
+        title: title,
+        message:
+            _screenErrors[screenKey] ??
+            _txt(
+              'Something went wrong while loading this screen.',
+              'මෙම තිරය පූරණය කිරීමේදී දෝෂයක් ඇති විය.',
+              'இந்த திரையை ஏற்றும் போது பிழை ஏற்பட்டது.',
+            ),
+        onRetry: () => _retryScreen(screenKey),
+      );
+    }
+
+    if (forceEmpty) {
+      return AppEmptyState(
+        title: title,
+        message:
+            emptyMessage ??
+            _txt(
+              'Nothing to show yet.',
+              'තවම පෙන්වීමට කිසිවක් නැත.',
+              'காண்பிக்க இதுவரை எதுவும் இல்லை.',
+            ),
+        actionLabel: emptyActionLabel,
+        onAction: onEmptyAction,
+      );
+    }
+
+    try {
+      return builder();
+    } catch (error) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _screenStates[screenKey] = _GlobalScreenState.error;
+          _screenErrors[screenKey] = error.toString();
+        });
+      });
+      return AppErrorState(
+        title: title,
+        message: _txt(
+          'Failed to render this screen. Tap retry.',
+          'මෙම තිරය පෙන්වීමට අසමත් විය. නැවත උත්සාහ කරන්න.',
+          'இந்த திரையை காட்ட முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
+        ),
+        onRetry: () => _retryScreen(screenKey),
+      );
+    }
+  }
 
   Widget _withSelectedLocale(Widget child) {
     if (_selectedLanguage.isEmpty) {
@@ -411,210 +614,319 @@ class _AppRootState extends State<AppRoot> {
   @override
   Widget build(BuildContext context) {
     if (_selectedLanguage.isEmpty) {
-      return LanguageSelectScreen(
-        onSelect: (lang) => setState(() => _selectedLanguage = lang),
+      return _buildStatefulRoute(
+        screenKey: 'language-select',
+        title: 'Language',
+        builder: () => LanguageSelectScreen(
+          onSelect: (lang) => setState(() => _selectedLanguage = lang),
+        ),
       );
     }
 
     if (!_isLoggedIn) {
       if (_showSignup) {
-        return _withSelectedLocale(
-          SignupScreen(
-            theme: _theme,
-            selectedLanguage: _selectedLanguage,
-            onSignUpSuccess: () => setState(() {
-              _isLoggedIn = true;
-              _showSignup = false;
-            }),
-            onNavigateToLogin: () => setState(() => _showSignup = false),
+        return _buildStatefulRoute(
+          screenKey: 'signup',
+          title: _txt('Sign Up', 'ලියාපදිංචි වන්න', 'பதிவு செய்யவும்'),
+          builder: () => _withSelectedLocale(
+            SignupScreen(
+              theme: _theme,
+              selectedLanguage: _selectedLanguage,
+              onSignUpSuccess: () => setState(() {
+                _isLoggedIn = true;
+                _showSignup = false;
+              }),
+              onNavigateToLogin: () => setState(() => _showSignup = false),
+            ),
           ),
         );
       }
-      return _withSelectedLocale(
-        LoginScreen(
-          theme: _theme,
-          selectedLanguage: _selectedLanguage,
-          onLoginSuccess: () => setState(() => _isLoggedIn = true),
-          onNavigateToSignup: () => setState(() => _showSignup = true),
+      return _buildStatefulRoute(
+        screenKey: 'login',
+        title: _txt('Login', 'පිවිසුම', 'உள்நுழை'),
+        builder: () => _withSelectedLocale(
+          LoginScreen(
+            theme: _theme,
+            selectedLanguage: _selectedLanguage,
+            onLoginSuccess: () => setState(() => _isLoggedIn = true),
+            onNavigateToSignup: () => setState(() => _showSignup = true),
+            biometricEnabled: _biometricEnabled,
+            onBiometricLogin: _handleBiometricLogin,
+          ),
         ),
       );
     }
 
     if (_activeTab == 'bookings') {
-      return _withSelectedLocale(
-        BookingsManagementScreen(
-          theme: _theme,
-          selectedLanguage: _selectedLanguage,
-          onBack: () => setState(() => _activeTab = 'home'),
+      return _buildStatefulRoute(
+        screenKey: 'bookings',
+        title: _txt('Bookings', 'වෙන්කිරීම්', 'முன்பதிவுகள்'),
+        builder: () => _withSelectedLocale(
+          BookingsManagementScreen(
+            theme: _theme,
+            selectedLanguage: _selectedLanguage,
+            onBack: () => setState(() => _activeTab = 'home'),
+          ),
         ),
       );
     }
 
     if (_activeTab == 'favorites') {
-      return _withSelectedLocale(
-        FavoriteScreen(
-          theme: _theme,
-          language: _selectedLanguage,
-          favorites: _favorites,
-          onBack: () => setState(() => _activeTab = 'home'),
-          onRemoveFavorite: (id) => setState(
-            () => _favorites = _favorites.where((f) => f.id != id).toList(),
+      return _buildStatefulRoute(
+        screenKey: 'favorites',
+        title: _txt('Favorites', 'ප්‍රියතම', 'பிடித்தவை'),
+        forceEmpty: _favorites.isEmpty,
+        emptyMessage: _txt(
+          'No favorites yet. Save worker categories to quickly book later.',
+          'තවම ප්‍රියතම නැත. ඉක්මනින් වෙන් කිරීම සඳහා සේවක වර්ග සුරකින්න.',
+          'இதுவரை பிடித்தவை இல்லை. பின்னர் விரைவாக முன்பதிவு செய்ய வகைகளை சேமிக்கவும்.',
+        ),
+        emptyActionLabel: _txt(
+          'Browse Workers',
+          'සේවකයන් බලන්න',
+          'பணியாளர்களை பார்க்க',
+        ),
+        onEmptyAction: () => setState(() => _currentScreen = 'workerType'),
+        builder: () => _withSelectedLocale(
+          FavoriteScreen(
+            theme: _theme,
+            language: _selectedLanguage,
+            favorites: _favorites,
+            onBack: () => setState(() => _activeTab = 'home'),
+            onRemoveFavorite: (id) => setState(
+              () => _favorites = _favorites.where((f) => f.id != id).toList(),
+            ),
+            onSelectFavorite: (cat) {
+              setState(() => _activeTab = 'home');
+              _selectCategory(cat);
+            },
           ),
-          onSelectFavorite: (cat) {
-            setState(() => _activeTab = 'home');
-            _selectCategory(cat);
-          },
         ),
       );
     }
 
     if (_activeTab == 'settings') {
-      return _withSelectedLocale(
-        separate.SettingsScreen(
-          language: _selectedLanguage,
-          currentTheme: _currentTheme,
-          onBack: () => setState(() => _activeTab = 'home'),
-          onLanguageChange: (lang) => setState(() => _selectedLanguage = lang),
-          onThemeChange: (th) => setState(() => _currentTheme = th),
-          onLogout: () => setState(() {
-            _isLoggedIn = false;
-            _activeTab = 'home';
-            _currentScreen = 'home';
-          }),
-          onDeleteAccount: () => setState(() {
-            _isLoggedIn = false;
-            _activeTab = 'home';
-            _currentScreen = 'home';
-          }),
+      return _buildStatefulRoute(
+        screenKey: 'settings',
+        title: _txt('Settings', 'සැකසීම්', 'அமைப்புகள்'),
+        builder: () => _withSelectedLocale(
+          separate.SettingsScreen(
+            language: _selectedLanguage,
+            currentTheme: _currentTheme,
+            onBack: () => setState(() => _activeTab = 'home'),
+            onLanguageChange: (lang) =>
+                setState(() => _selectedLanguage = lang),
+            onThemeChange: (th) => setState(() => _currentTheme = th),
+            notificationSettings: _notificationSettings,
+            onNotificationSettingsChange: (settings) =>
+                setState(() => _notificationSettings = settings),
+            biometricEnabled: _biometricEnabled,
+            onBiometricToggle: _toggleBiometric,
+            onLogout: () => setState(() {
+              _isLoggedIn = false;
+              _activeTab = 'home';
+              _currentScreen = 'home';
+            }),
+            onDeleteAccount: () => setState(() {
+              _isLoggedIn = false;
+              _activeTab = 'home';
+              _currentScreen = 'home';
+            }),
+          ),
         ),
       );
     }
 
     if (_currentScreen == 'notifications') {
-      return _withSelectedLocale(
-        notification_ui.NotificationScreen(
-          language: _selectedLanguage,
-          currentTheme: _currentTheme,
-          translateCategory: getCategoryTranslation,
-          onBack: () => setState(() => _currentScreen = 'home'),
+      return _buildStatefulRoute(
+        screenKey: 'notifications',
+        title: _txt('Notifications', 'දැනුම්දීම්', 'அறிவிப்புகள்'),
+        forceEmpty: !_notificationSettings.values.any((isEnabled) => isEnabled),
+        emptyMessage: _txt(
+          'All notification types are turned off. Enable one in Settings.',
+          'සියලු දැනුම්දීම් වර්ග අක්‍රියයි. සැකසීම් තුළ එකක් සක්‍රිය කරන්න.',
+          'அனைத்து அறிவிப்பு வகைகளும் அணைக்கப்பட்டுள்ளன. அமைப்புகளில் ஒன்றை இயக்கவும்.',
+        ),
+        emptyActionLabel: _txt(
+          'Open Settings',
+          'සැකසීම් විවෘත කරන්න',
+          'அமைப்புகளைத் திறக்கவும்',
+        ),
+        onEmptyAction: () => setState(() {
+          _activeTab = 'settings';
+          _currentScreen = 'home';
+        }),
+        builder: () => _withSelectedLocale(
+          notification_ui.NotificationScreen(
+            language: _selectedLanguage,
+            currentTheme: _currentTheme,
+            notificationSettings: _notificationSettings,
+            translateCategory: getCategoryTranslation,
+            onBack: () => setState(() => _currentScreen = 'home'),
+          ),
         ),
       );
     }
 
     if (_currentScreen == 'findWorker') {
-      return _withSelectedLocale(
-        FindWorkerScreen(
-          theme: _theme,
-          language: _selectedLanguage,
-          workerType: _bookingContext['workerType'] ?? '',
-          userAddress: _bookingContext['address'] ?? '',
-          onBack: () => setState(() => _currentScreen = 'home'),
+      return _buildStatefulRoute(
+        screenKey: 'find-worker',
+        title: _txt('Find Worker', 'සේවකයෙකු සොයන්න', 'பணியாளரைத் தேடு'),
+        builder: () => _withSelectedLocale(
+          FindWorkerScreen(
+            theme: _theme,
+            language: _selectedLanguage,
+            workerType: _bookingContext['workerType'] ?? '',
+            userAddress: _bookingContext['address'] ?? '',
+            onBack: () => setState(() => _currentScreen = 'home'),
+          ),
         ),
       );
     }
 
     if (_currentScreen == 'booking') {
-      return _withSelectedLocale(
-        booking_ui.BookingScreen(
-          initialWorkerCategory:
-              _bookingContext['workerType'] ??
-              _selectedWorker?.category ??
-              'Plumber',
-          language: _selectedLanguage,
-          currentTheme: _currentTheme,
-          translateCategory: getCategoryTranslation,
-          onBack: () => setState(() {
-            _currentScreen = 'home';
-            _selectedWorker = null;
-            _bookingContext = {};
-          }),
-          onPostJobRequest: (jobRequest) {
-            setState(() {
-              _activeTab = 'bookings';
+      return _buildStatefulRoute(
+        screenKey: 'booking',
+        title: _txt('Booking', 'වෙන්කිරීම', 'முன்பதிவு'),
+        builder: () => _withSelectedLocale(
+          booking_ui.BookingScreen(
+            initialWorkerCategory:
+                _bookingContext['workerType'] ??
+                _selectedWorker?.category ??
+                'Plumber',
+            language: _selectedLanguage,
+            currentTheme: _currentTheme,
+            translateCategory: getCategoryTranslation,
+            onBack: () => setState(() {
               _currentScreen = 'home';
               _selectedWorker = null;
               _bookingContext = {};
-            });
-            // Navigate to bookings tab and show confirmation.
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  getCategoryTranslation(
-                    'Job posted! Opening Bookings to view bids.',
-                    _selectedLanguage,
+            }),
+            onPostJobRequest: (jobRequest) {
+              setState(() {
+                _activeTab = 'bookings';
+                _currentScreen = 'home';
+                _selectedWorker = null;
+                _bookingContext = {};
+              });
+              // Navigate to bookings tab and show confirmation.
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    getCategoryTranslation(
+                      'Job posted! Opening Bookings to view bids.',
+                      _selectedLanguage,
+                    ),
                   ),
+                  backgroundColor: Colors.green,
+                  duration: const Duration(seconds: 3),
                 ),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 3),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       );
     }
 
     if (_currentScreen == 'workerType') {
-      return _withSelectedLocale(
-        worker_ui.WorkerTypeScreen(
-          language: _selectedLanguage,
-          currentTheme: _currentTheme,
-          favoriteCategories: _favorites.map((f) => f.category).toList(),
-          onBack: () => setState(() => _currentScreen = 'home'),
-          onSelectCategory: _selectCategory,
-          onToggleFavorite: (cat) => setState(() {
-            if (_favorites.any((f) => f.category == cat)) {
-              _favorites = _favorites.where((f) => f.category != cat).toList();
-            } else {
-              _favorites = [
-                ..._favorites,
-                Favorite(id: cat.hashCode, name: cat, category: cat),
-              ];
-            }
-          }),
-          getCategoryCount: (category) => kWorkers
-              .where((w) => w.available && w.category == category)
-              .length,
+      return _buildStatefulRoute(
+        screenKey: 'worker-type',
+        title: _txt('Worker Types', 'සේවක වර්ග', 'பணியாளர் வகைகள்'),
+        forceEmpty: kWorkers.where((w) => w.available).isEmpty,
+        emptyMessage: _txt(
+          'No workers are currently available. Please try again soon.',
+          'දැනට සේවකයින් නොමැත. කරුණාකර පසුව නැවත උත්සාහ කරන්න.',
+          'தற்போது பணியாளர்கள் இல்லை. பின்னர் மீண்டும் முயற்சிக்கவும்.',
+        ),
+        emptyActionLabel: _txt('Back Home', 'මුල් පිටුවට', 'முகப்பிற்கு'),
+        onEmptyAction: () => setState(() => _currentScreen = 'home'),
+        builder: () => _withSelectedLocale(
+          worker_ui.WorkerTypeScreen(
+            language: _selectedLanguage,
+            currentTheme: _currentTheme,
+            favoriteCategories: _favorites.map((f) => f.category).toList(),
+            onBack: () => setState(() => _currentScreen = 'home'),
+            onSelectCategory: _selectCategory,
+            onToggleFavorite: (cat) => setState(() {
+              if (_favorites.any((f) => f.category == cat)) {
+                _favorites = _favorites
+                    .where((f) => f.category != cat)
+                    .toList();
+              } else {
+                _favorites = [
+                  ..._favorites,
+                  Favorite(id: cat.hashCode, name: cat, category: cat),
+                ];
+              }
+            }),
+            getCategoryCount: (category) => kWorkers
+                .where((w) => w.available && w.category == category)
+                .length,
+          ),
         ),
       );
     }
 
     // Main home screen
-    return _withSelectedLocale(
-      HomeScreen(
-        theme: _theme,
-        language: _selectedLanguage,
-        t: _t,
-        activeTab: _activeTab,
-        addresses: _addresses,
-        selectedAddressIndex: _selectedAddressIndex,
-        promotions: _promotions,
-        promoVisible: _promoVisible,
-        onUpdateAddresses: (list) => setState(() => _addresses = list),
-        onSetSelectedAddressIndex: (i) =>
-            setState(() => _selectedAddressIndex = i),
-        onSelectCategory: _selectCategory,
-        onShowCategories: () => setState(() => _currentScreen = 'workerType'),
-        onBookNow: _bookNow,
-        onNotificationPress: () =>
-            setState(() => _currentScreen = 'notifications'),
-        onSetActiveTab: (tab) => setState(() => _activeTab = tab),
-        onGoToFavorites: () => setState(() => _activeTab = 'favorites'),
-        onGoToSettings: () => setState(() => _activeTab = 'settings'),
-        onSetPromoVisible: (v) => setState(() => _promoVisible = v),
-        onNavigateSearch: (action) {
-          switch (action) {
-            case 'settings':
-              setState(() => _activeTab = 'settings');
-            case 'workerType':
-              setState(() => _currentScreen = 'workerType');
-            case 'bookings':
-              setState(() => _activeTab = 'bookings');
-            case 'favorites':
-              setState(() => _activeTab = 'favorites');
-            case 'notifications':
-              setState(() => _currentScreen = 'notifications');
-          }
-        },
+    return _buildStatefulRoute(
+      screenKey: 'home',
+      title: _txt('Home', 'මුල් පිටුව', 'முகப்பு'),
+      forceEmpty: _addresses.isEmpty,
+      emptyMessage: _txt(
+        'No saved addresses yet. Add one to start booking services.',
+        'තවම සුරකින ලද ලිපින නැත. සේවා වෙන්කිරීම සඳහා එකක් එක් කරන්න.',
+        'சேமிக்கப்பட்ட முகவரிகள் இல்லை. சேவைகளை முன்பதிவு செய்ய ஒன்றை சேர்க்கவும்.',
+      ),
+      emptyActionLabel: _txt(
+        'Add Current Location',
+        'වත්මන් ස්ථානය එක් කරන්න',
+        'தற்போதைய இடத்தைச் சேர்க்கவும்',
+      ),
+      onEmptyAction: () => setState(() {
+        _addresses = const [
+          AppAddress(
+            id: 1,
+            label: 'Current location',
+            address: 'Current Location',
+            isDefault: true,
+          ),
+        ];
+        _selectedAddressIndex = 0;
+      }),
+      builder: () => _withSelectedLocale(
+        HomeScreen(
+          theme: _theme,
+          language: _selectedLanguage,
+          t: _t,
+          activeTab: _activeTab,
+          addresses: _addresses,
+          selectedAddressIndex: _selectedAddressIndex,
+          onUpdateAddresses: (list) => setState(() => _addresses = list),
+          onSetSelectedAddressIndex: (i) =>
+              setState(() => _selectedAddressIndex = i),
+          onSelectCategory: _selectCategory,
+          onShowCategories: () => setState(() => _currentScreen = 'workerType'),
+          onBookNow: _bookNow,
+          onNotificationPress: () =>
+              setState(() => _currentScreen = 'notifications'),
+          onSetActiveTab: (tab) => setState(() => _activeTab = tab),
+          onGoToFavorites: () => setState(() => _activeTab = 'favorites'),
+          onGoToSettings: () => setState(() => _activeTab = 'settings'),
+          onNavigateSearch: (action) {
+            switch (action) {
+              case 'settings':
+                setState(() => _activeTab = 'settings');
+              case 'workerType':
+                setState(() => _currentScreen = 'workerType');
+              case 'bookings':
+                setState(() => _activeTab = 'bookings');
+              case 'favorites':
+                setState(() => _activeTab = 'favorites');
+              case 'notifications':
+                setState(() => _currentScreen = 'notifications');
+            }
+          },
+        ),
       ),
     );
   }
@@ -630,8 +942,6 @@ class HomeScreen extends StatefulWidget {
   final String activeTab;
   final List<AppAddress> addresses;
   final int selectedAddressIndex;
-  final List<String> promotions;
-  final bool promoVisible;
   final void Function(List<AppAddress>) onUpdateAddresses;
   final void Function(int) onSetSelectedAddressIndex;
   final void Function(String) onSelectCategory;
@@ -641,7 +951,6 @@ class HomeScreen extends StatefulWidget {
   final void Function(String) onSetActiveTab;
   final VoidCallback onGoToFavorites;
   final VoidCallback onGoToSettings;
-  final void Function(bool) onSetPromoVisible;
   final void Function(String) onNavigateSearch;
 
   const HomeScreen({
@@ -652,8 +961,6 @@ class HomeScreen extends StatefulWidget {
     required this.activeTab,
     required this.addresses,
     required this.selectedAddressIndex,
-    required this.promotions,
-    required this.promoVisible,
     required this.onUpdateAddresses,
     required this.onSetSelectedAddressIndex,
     required this.onSelectCategory,
@@ -663,7 +970,6 @@ class HomeScreen extends StatefulWidget {
     required this.onSetActiveTab,
     required this.onGoToFavorites,
     required this.onGoToSettings,
-    required this.onSetPromoVisible,
     required this.onNavigateSearch,
   });
 
@@ -1115,8 +1421,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       endIndent: 16,
                     ),
                     _buildBookNowButton(lang),
-                    if (widget.promoVisible && widget.promotions.isNotEmpty)
-                      _buildPromoBanner(theme, lang),
                     const SizedBox(height: 32),
                   ],
                 ),
@@ -1131,116 +1435,240 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildTopSection(AppTheme theme, String lang, AppTranslations t) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF0B1533),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(3000),
-          bottomRight: Radius.circular(6000),
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF07122D), Color(0xFF0B1533), Color(0xFF173775)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0B1533).withValues(alpha: 0.28),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.fromLTRB(22, 50, 22, 150),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(
+          Positioned(
+            right: -24,
+            top: -24,
+            child: Container(
+              width: 110,
+              height: 110,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.07),
+              ),
+            ),
+          ),
+          Positioned(
+            left: -16,
+            bottom: -34,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.05),
+              ),
+            ),
+          ),
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${t.goodMorning} Jehan !',
-                      style: const TextStyle(
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${t.goodMorning} Jehan!',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          lang == 'en'
+                              ? 'Book trusted workers in minutes'
+                              : lang == 'si'
+                              ? 'විශ්වාසදායක සේවකයන් ඉක්මනින් වෙන්කරගන්න'
+                              : 'நம்பகமான தொழிலாளர்களை நிமிடங்களில் முன்பதிவு செய்யவும்',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.82),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: IconButton(
+                      onPressed: widget.onNotificationPress,
+                      icon: const Icon(
+                        Icons.notifications_outlined,
                         color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    GestureDetector(
-                      onTap: _openLocationModal,
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.location_pin,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              '$_addressDisplayText...▼',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: _openLocationModal,
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.location_pin,
+                      size: 14,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        _addressDisplayText.isEmpty
+                            ? (lang == 'en'
+                                  ? 'Select delivery location'
+                                  : lang == 'si'
+                                  ? 'ස්ථානය තෝරන්න'
+                                  : 'இடத்தைத் தேர்ந்தெடுக்கவும்')
+                            : '$_addressDisplayText...▼',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: widget.onNotificationPress,
-                icon: const Icon(
-                  Icons.notifications_outlined,
-                  size: 24,
-                  color: Colors.white,
+              const SizedBox(height: 14),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search, size: 18, color: Colors.white),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchCtrl,
+                        focusNode: _searchFocus,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: t.searchPlaceholder,
+                          hintStyle: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.65),
+                            fontSize: 14,
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        onChanged: (v) => setState(() => _searchQuery = v),
+                      ),
+                    ),
+                    if (_searchQuery.isNotEmpty)
+                      GestureDetector(
+                        onTap: () {
+                          _searchCtrl.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                        child: const Icon(
+                          Icons.cancel,
+                          size: 18,
+                          color: Colors.white,
+                        ),
+                      ),
+                  ],
+                ),
               ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildHeaderChip(
+                    icon: Icons.room_service_outlined,
+                    label: lang == 'en'
+                        ? '12+ services'
+                        : lang == 'si'
+                        ? 'සේවා 12+'
+                        : '12+ சேவைகள்',
+                  ),
+                  _buildHeaderChip(
+                    icon: Icons.location_on_outlined,
+                    label: lang == 'en'
+                        ? '${widget.addresses.length} saved places'
+                        : lang == 'si'
+                        ? 'ස්ථාන ${widget.addresses.length}'
+                        : '${widget.addresses.length} சேமித்த இடங்கள்',
+                  ),
+                  _buildHeaderChip(
+                    icon: Icons.local_offer_outlined,
+                    label: lang == 'en'
+                        ? 'Fast response'
+                        : lang == 'si'
+                        ? 'වේගවත් ප්‍රතිචාර'
+                        : 'வேகமான பதில்',
+                  ),
+                ],
+              ),
+              if (_searchFocused && _searchQuery.trim().isNotEmpty)
+                _buildSearchSuggestions(theme, lang),
             ],
           ),
-          const SizedBox(height: 16),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha(51),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
-              children: [
-                const Icon(Icons.search, size: 18, color: Colors.white),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    focusNode: _searchFocus,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                    decoration: InputDecoration(
-                      hintText: t.searchPlaceholder,
-                      hintStyle: TextStyle(
-                        color: Colors.white.withAlpha(153),
-                        fontSize: 14,
-                      ),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    onChanged: (v) => setState(() => _searchQuery = v),
-                  ),
-                ),
-                if (_searchQuery.isNotEmpty)
-                  GestureDetector(
-                    onTap: () {
-                      _searchCtrl.clear();
-                      setState(() => _searchQuery = '');
-                    },
-                    child: const Icon(
-                      Icons.cancel,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                  ),
-              ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderChip({required IconData icon, required String label}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          if (_searchFocused && _searchQuery.trim().isNotEmpty)
-            _buildSearchSuggestions(theme, lang),
         ],
       ),
     );
@@ -1493,55 +1921,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildPromoBanner(AppTheme theme, String lang) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: theme.cardBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.primary),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () => ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text(widget.promotions[0]))),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '⭐ ${widget.promotions[0]}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: theme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    lang == 'en'
-                        ? 'Tap for details'
-                        : lang == 'si'
-                        ? 'විස්තර සඳහා ස්පර්ශ කරන්න'
-                        : 'விவரங்களுக்கு தொடர்பு கொள்ளவும்',
-                    style: TextStyle(fontSize: 12, color: theme.textSecondary),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          IconButton(
-            onPressed: () => widget.onSetPromoVisible(false),
-            icon: Icon(Icons.close, size: 18, color: theme.textSecondary),
-          ),
-        ],
       ),
     );
   }
@@ -2000,59 +2379,6 @@ class CategoryCircle extends StatelessWidget {
 }
 
 // ============================================================
-// BOOKINGS SCREEN
-// ============================================================
-class BookingsScreen extends StatelessWidget {
-  final AppTheme theme;
-  final String language;
-  final VoidCallback onBack;
-
-  const BookingsScreen({
-    super.key,
-    required this.theme,
-    required this.language,
-    required this.onBack,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: theme.background,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0B1533),
-        foregroundColor: Colors.white,
-        title: const Text('Bookings'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: onBack,
-        ),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.calendar_today_outlined,
-              size: 64,
-              color: theme.textSecondary,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              language == 'si'
-                  ? 'Bookings නැත'
-                  : language == 'ta'
-                  ? 'முன்பதிவுகள் இல்லை'
-                  : 'No bookings yet',
-              style: TextStyle(fontSize: 18, color: theme.textSecondary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================
 // FAVORITE SCREEN
 // ============================================================
 class FavoriteScreen extends StatelessWidget {
@@ -2143,391 +2469,6 @@ class FavoriteScreen extends StatelessWidget {
                 );
               },
             ),
-    );
-  }
-}
-
-// ============================================================
-// SETTINGS SCREEN
-// ============================================================
-class SettingsScreen extends StatelessWidget {
-  final AppTheme theme;
-  final String language;
-  final String currentTheme;
-  final VoidCallback onBack;
-  final void Function(String) onLanguageChange;
-  final void Function(String) onThemeChange;
-  final VoidCallback onLogout;
-  final VoidCallback onDeleteAccount;
-
-  const SettingsScreen({
-    super.key,
-    required this.theme,
-    required this.language,
-    required this.currentTheme,
-    required this.onBack,
-    required this.onLanguageChange,
-    required this.onThemeChange,
-    required this.onLogout,
-    required this.onDeleteAccount,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: theme.background,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0B1533),
-        foregroundColor: Colors.white,
-        title: Text(
-          language == 'en'
-              ? 'Settings'
-              : language == 'si'
-              ? 'සැකසීම්'
-              : 'அமைப்புகள்',
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: onBack,
-        ),
-      ),
-      body: ListView(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.language),
-            title: Text(
-              language == 'en'
-                  ? 'Language'
-                  : language == 'si'
-                  ? 'භාෂාව'
-                  : 'மொழி',
-              style: TextStyle(color: theme.textPrimary),
-            ),
-            subtitle: Text(
-              language.toUpperCase(),
-              style: TextStyle(color: theme.textSecondary),
-            ),
-            trailing: PopupMenuButton<String>(
-              onSelected: onLanguageChange,
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'en', child: Text('English')),
-                PopupMenuItem(value: 'si', child: Text('සිංහල')),
-                PopupMenuItem(value: 'ta', child: Text('தமிழ்')),
-              ],
-            ),
-          ),
-          Divider(color: theme.border),
-          ListTile(
-            leading: const Icon(Icons.dark_mode_outlined),
-            title: Text(
-              language == 'en'
-                  ? 'Dark Mode'
-                  : language == 'si'
-                  ? 'අඳුරු ප්‍රකාරය'
-                  : 'இருண்ட முறை',
-              style: TextStyle(color: theme.textPrimary),
-            ),
-            trailing: Switch(
-              value: currentTheme == 'dark',
-              onChanged: (v) => onThemeChange(v ? 'dark' : 'light'),
-              activeThumbColor: const Color(0xFF4A90E2),
-            ),
-          ),
-          Divider(color: theme.border),
-          const SizedBox(height: 24),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text(
-              'Logout',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
-            ),
-            onTap: onLogout,
-          ),
-          ListTile(
-            leading: const Icon(Icons.delete_forever, color: Colors.red),
-            title: const Text(
-              'Delete Account',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
-            ),
-            onTap: onDeleteAccount,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================
-// NOTIFICATION SCREEN
-// ============================================================
-class NotificationScreen extends StatelessWidget {
-  final AppTheme theme;
-  final String language;
-  final VoidCallback onBack;
-
-  const NotificationScreen({
-    super.key,
-    required this.theme,
-    required this.language,
-    required this.onBack,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: theme.background,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0B1533),
-        foregroundColor: Colors.white,
-        title: Text(
-          language == 'en'
-              ? 'Notifications'
-              : language == 'si'
-              ? 'දැනුම්දීම්'
-              : 'அறிவிப்புகள்',
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: onBack,
-        ),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.notifications_none,
-              size: 64,
-              color: theme.textSecondary,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              language == 'en'
-                  ? 'No notifications'
-                  : language == 'si'
-                  ? 'දැනුම්දීම් නැත'
-                  : 'அறிவிப்புகள் இல்லை',
-              style: TextStyle(fontSize: 18, color: theme.textSecondary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// WORKER TYPE SCREEN
-// ============================================================
-class WorkerTypeScreen extends StatelessWidget {
-  final AppTheme theme;
-  final String language;
-  final List<Favorite> favorites;
-  final VoidCallback onBack;
-  final void Function(String) onSelectCategory;
-  final void Function(String) onToggleFavorite;
-
-  const WorkerTypeScreen({
-    super.key,
-    required this.theme,
-    required this.language,
-    required this.favorites,
-    required this.onBack,
-    required this.onSelectCategory,
-    required this.onToggleFavorite,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const cats = [
-      'Plumber',
-      'Electrician',
-      'Mason',
-      'Carpenter',
-      'Painter',
-      'Gardener',
-      'Cleaner',
-      'AC Technician',
-      'Mechanic',
-      'Welder',
-      'Tiler',
-      'Roofer',
-    ];
-    return Scaffold(
-      backgroundColor: theme.background,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0B1533),
-        foregroundColor: Colors.white,
-        title: Text(
-          language == 'en'
-              ? 'Worker Types'
-              : language == 'si'
-              ? 'සේවක වර්ග'
-              : 'பணியாளர் வகைகள்',
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: onBack,
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Wrap(
-          spacing: 12,
-          runSpacing: 16,
-          children: cats.map((c) {
-            return CategoryCircle(
-              key: ValueKey(c),
-              label: getCategoryTranslation(c, language),
-              theme: theme,
-              onPress: () => onSelectCategory(c),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// BOOKING SCREEN
-// ============================================================
-class BookingScreen extends StatelessWidget {
-  final AppTheme theme;
-  final String language;
-  final Worker worker;
-  final VoidCallback onBack;
-  final VoidCallback onConfirmBooking;
-  final void Function(String, String) onFindWorker;
-
-  const BookingScreen({
-    super.key,
-    required this.theme,
-    required this.language,
-    required this.worker,
-    required this.onBack,
-    required this.onConfirmBooking,
-    required this.onFindWorker,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: theme.background,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0B1533),
-        foregroundColor: Colors.white,
-        title: Text(
-          language == 'en'
-              ? 'Book Worker'
-              : language == 'si'
-              ? 'සේවකයා Book කරන්න'
-              : 'பணியாளர் முன்பதிவு',
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: onBack,
-        ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Card(
-              color: theme.cardBackground,
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 32,
-                      backgroundColor: const Color(0xFF0B1533),
-                      child: Text(
-                        worker.name[0],
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            worker.name,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: theme.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            worker.category,
-                            style: TextStyle(color: theme.textSecondary),
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.star,
-                                color: Colors.amber,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${worker.rating}',
-                                style: TextStyle(
-                                  color: theme.textSecondary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: onConfirmBooking,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0B1533),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Text(
-                  language == 'en'
-                      ? 'Confirm Booking'
-                      : language == 'si'
-                      ? 'Booking තහවුරු කරන්න'
-                      : 'முன்பதிவை உறுதிப்படுத்தவும்',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
     );
   }
 }

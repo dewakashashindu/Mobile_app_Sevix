@@ -9,6 +9,8 @@ class LoginScreen extends StatefulWidget {
   final String selectedLanguage;
   final VoidCallback onLoginSuccess;
   final VoidCallback onNavigateToSignup;
+  final bool biometricEnabled;
+  final Future<bool> Function() onBiometricLogin;
 
   const LoginScreen({
     super.key,
@@ -16,6 +18,8 @@ class LoginScreen extends StatefulWidget {
     required this.selectedLanguage,
     required this.onLoginSuccess,
     required this.onNavigateToSignup,
+    required this.biometricEnabled,
+    required this.onBiometricLogin,
   });
 
   @override
@@ -29,6 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _showPassword = false;
   bool _loading = false;
+  bool _biometricLoading = false;
   bool _resetLoading = false;
 
   @override
@@ -72,6 +77,11 @@ class _LoginScreenState extends State<LoginScreen> {
       },
       'signUp': {'en': 'Sign Up', 'si': 'ලියාපදිංචි වන්න', 'ta': 'பதிவுசெய்க'},
       'cancel': {'en': 'Cancel', 'si': 'අවලංගු කරන්න', 'ta': 'ரத்து செய்'},
+      'biometric': {
+        'en': 'Unlock with Biometrics',
+        'si': 'ජෛව සත්‍යාපනයෙන් ඇතුල් වන්න',
+        'ta': 'பயோமெட்ரிக்ஸ் மூலம் திறக்கவும்',
+      },
     };
 
     final values = translations[key];
@@ -292,6 +302,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
                     _buildLoginButton(theme),
+                    if (widget.biometricEnabled) ...[
+                      const SizedBox(height: 12),
+                      _buildBiometricButton(theme),
+                    ],
                     const SizedBox(height: 28),
                     _buildDivider(theme),
                     const SizedBox(height: 20),
@@ -462,6 +476,55 @@ class _LoginScreenState extends State<LoginScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+      ),
+    );
+  }
+
+  Widget _buildBiometricButton(dynamic theme) {
+    if (!widget.biometricEnabled) {
+      return const SizedBox.shrink();
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: OutlinedButton.icon(
+        onPressed: _biometricLoading
+            ? null
+            : () async {
+                setState(() => _biometricLoading = true);
+                final ok = await widget.onBiometricLogin();
+                if (mounted) {
+                  setState(() => _biometricLoading = false);
+                }
+                if (!ok && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Biometric authentication failed.'),
+                    ),
+                  );
+                }
+              },
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: theme.primary),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        icon: _biometricLoading
+            ? SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(theme.primary),
+                ),
+              )
+            : Icon(Icons.fingerprint, color: theme.primary),
+        label: Text(
+          _t('biometric'),
+          style: TextStyle(fontWeight: FontWeight.w700, color: theme.primary),
+        ),
       ),
     );
   }
