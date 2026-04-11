@@ -1,6 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sevix/l10n/app_localizations.dart';
 import 'package:sevix/features/home/presentation/providers/user_provider.dart';
 import 'settings_screen.dart' as separate;
@@ -11,10 +15,32 @@ import 'language_select_screen.dart';
 import 'login_screen.dart';
 import 'signup_screen.dart';
 import 'bookings_management_screen.dart';
+import 'chat_screen.dart';
 import 'services/biometric_service.dart';
 import 'widgets/app_state_views.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await Firebase.initializeApp();
+  } catch (_) {
+    // Fallback for local/dev setups where google-services.json is not present.
+    if (!kIsWeb) {
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: 'demo-api-key',
+          appId: '1:1234567890:android:abcdef1234567890',
+          messagingSenderId: '1234567890',
+          projectId: 'sevix-demo',
+          storageBucket: 'sevix-demo.appspot.com',
+        ),
+      );
+    } else {
+      rethrow;
+    }
+  }
+
   runApp(const ProviderScope(child: SevixApp()));
 }
 
@@ -148,25 +174,28 @@ class AppTranslations {
   );
 
   static const si = AppTranslations(
-    goodMorning: 'සුභ උදෑසනක්,',
-    searchPlaceholder: 'සේවකයන් සොයන්න...',
-    homeTab: 'මුල් පිටුව',
+    goodMorning: 'à·ƒà·”à¶· à¶‹à¶¯à·‘à·ƒà¶±à¶šà·Š,',
+    searchPlaceholder: 'à·ƒà·šà·€à¶šà¶ºà¶±à·Š à·ƒà·œà¶ºà¶±à·Šà¶±...',
+    homeTab: 'à¶¸à·”à¶½à·Š à¶´à·’à¶§à·”à·€',
     bookingsTab: 'Bookings',
-    useCurrentLocation: 'වත්මන් ස්ථානය භාවිත කරන්න',
-    edit: 'සංස්කරණය',
-    cancel: 'අවලංගු කරන්න',
-    save: 'සුරකින්න',
+    useCurrentLocation:
+        'à·€à¶­à·Šà¶¸à¶±à·Š à·ƒà·Šà¶®à·à¶±à¶º à¶·à·à·€à·’à¶­ à¶šà¶»à¶±à·Šà¶±',
+    edit: 'à·ƒà¶‚à·ƒà·Šà¶šà¶»à¶«à¶º',
+    cancel: 'à¶…à·€à¶½à¶‚à¶œà·” à¶šà¶»à¶±à·Šà¶±',
+    save: 'à·ƒà·”à¶»à¶šà·’à¶±à·Šà¶±',
   );
 
   static const ta = AppTranslations(
-    goodMorning: 'காலை வணக்கம்,',
-    searchPlaceholder: 'தொழிலாளர்களை தேடவும்...',
-    homeTab: 'முகப்பு',
+    goodMorning: 'à®•à®¾à®²à¯ˆ à®µà®£à®•à¯à®•à®®à¯,',
+    searchPlaceholder:
+        'à®¤à¯Šà®´à®¿à®²à®¾à®³à®°à¯à®•à®³à¯ˆ à®¤à¯‡à®Ÿà®µà¯à®®à¯...',
+    homeTab: 'à®®à¯à®•à®ªà¯à®ªà¯',
     bookingsTab: 'Bookings',
-    useCurrentLocation: 'தற்போதைய இடத்தை பயன்படுத்தவும்',
-    edit: 'திருத்து',
-    cancel: 'ரத்து செய்',
-    save: 'சேமி',
+    useCurrentLocation:
+        'à®¤à®±à¯à®ªà¯‹à®¤à¯ˆà®¯ à®‡à®Ÿà®¤à¯à®¤à¯ˆ à®ªà®¯à®©à¯à®ªà®Ÿà¯à®¤à¯à®¤à®µà¯à®®à¯',
+    edit: 'à®¤à®¿à®°à¯à®¤à¯à®¤à¯',
+    cancel: 'à®°à®¤à¯à®¤à¯ à®šà¯†à®¯à¯',
+    save: 'à®šà¯‡à®®à®¿',
   );
 
   static AppTranslations forLang(String lang) {
@@ -292,34 +321,66 @@ class Favorite {
 // ============================================================
 String getCategoryTranslation(String category, String lang) {
   const Map<String, Map<String, String>> translations = {
-    'Plumber': {'en': 'Plumber', 'si': 'නළ සේවකයා', 'ta': 'குழாய்வேலை'},
+    'Plumber': {
+      'en': 'Plumber',
+      'si': 'à¶±à·… à·ƒà·šà·€à¶šà¶ºà·',
+      'ta': 'à®•à¯à®´à®¾à®¯à¯à®µà¯‡à®²à¯ˆ',
+    },
     'Electrician': {
       'en': 'Electrician',
-      'si': 'විදුලි කාර්මිකය',
-      'ta': 'மின்சாரி',
+      'si': 'à·€à·’à¶¯à·”à¶½à·’ à¶šà·à¶»à·Šà¶¸à·’à¶šà¶º',
+      'ta': 'à®®à®¿à®©à¯à®šà®¾à®°à®¿',
     },
-    'Mason': {'en': 'Mason', 'si': 'කොන්ක්‍රිට් කම්කරු', 'ta': 'கொத்தனார்'},
+    'Mason': {
+      'en': 'Mason',
+      'si': 'à¶šà·œà¶±à·Šà¶šà·Šâ€à¶»à·’à¶§à·Š à¶šà¶¸à·Šà¶šà¶»à·”',
+      'ta': 'à®•à¯Šà®¤à¯à®¤à®©à®¾à®°à¯',
+    },
     'Carpenter': {
       'en': 'Carpenter',
-      'si': 'ඉදිකිරීම් කාර්මිකය',
-      'ta': 'தச்சர்',
+      'si': 'à¶‰à¶¯à·’à¶šà·’à¶»à·“à¶¸à·Š à¶šà·à¶»à·Šà¶¸à·’à¶šà¶º',
+      'ta': 'à®¤à®šà¯à®šà®°à¯',
     },
-    'Painter': {'en': 'Painter', 'si': 'පින්තාරු කරු', 'ta': 'சித்தரிப்பவர்'},
-    'Gardener': {'en': 'Gardener', 'si': 'ගොවිකම', 'ta': 'தோட்டக்காரர்'},
+    'Painter': {
+      'en': 'Painter',
+      'si': 'à¶´à·’à¶±à·Šà¶­à·à¶»à·” à¶šà¶»à·”',
+      'ta': 'à®šà®¿à®¤à¯à®¤à®°à®¿à®ªà¯à®ªà®µà®°à¯',
+    },
+    'Gardener': {
+      'en': 'Gardener',
+      'si': 'à¶œà·œà·€à·’à¶šà¶¸',
+      'ta': 'à®¤à¯‹à®Ÿà¯à®Ÿà®•à¯à®•à®¾à®°à®°à¯',
+    },
     'Cleaner': {
       'en': 'Cleaner',
-      'si': 'පිරිසිදු කරන්නා',
-      'ta': 'சுத்தம் செய்பவர்',
+      'si': 'à¶´à·’à¶»à·’à·ƒà·’à¶¯à·” à¶šà¶»à¶±à·Šà¶±à·',
+      'ta': 'à®šà¯à®¤à¯à®¤à®®à¯ à®šà¯†à®¯à¯à®ªà®µà®°à¯',
     },
     'AC Technician': {
       'en': 'AC Technician',
-      'si': 'AC කාර්මිකය',
-      'ta': 'AC தொழில்நுட்பவியலாளர்',
+      'si': 'AC à¶šà·à¶»à·Šà¶¸à·’à¶šà¶º',
+      'ta': 'AC à®¤à¯Šà®´à®¿à®²à¯à®¨à¯à®Ÿà¯à®ªà®µà®¿à®¯à®²à®¾à®³à®°à¯',
     },
-    'Mechanic': {'en': 'Mechanic', 'si': 'යාන්ත්‍රිකය', 'ta': 'மெக்கானிக்'},
-    'Welder': {'en': 'Welder', 'si': 'වෑල්ඩර්', 'ta': 'வெல்டர்'},
-    'Tiler': {'en': 'Tiler', 'si': 'ටයිල් කාර්මිකය', 'ta': 'ஓடு வேலையாளர்'},
-    'Roofer': {'en': 'Roofer', 'si': 'වහල් කාර්මිකය', 'ta': 'கூரை வேலையாளர்'},
+    'Mechanic': {
+      'en': 'Mechanic',
+      'si': 'à¶ºà·à¶±à·Šà¶­à·Šâ€à¶»à·’à¶šà¶º',
+      'ta': 'à®®à¯†à®•à¯à®•à®¾à®©à®¿à®•à¯',
+    },
+    'Welder': {
+      'en': 'Welder',
+      'si': 'à·€à·‘à¶½à·Šà¶©à¶»à·Š',
+      'ta': 'à®µà¯†à®²à¯à®Ÿà®°à¯',
+    },
+    'Tiler': {
+      'en': 'Tiler',
+      'si': 'à¶§à¶ºà·’à¶½à·Š à¶šà·à¶»à·Šà¶¸à·’à¶šà¶º',
+      'ta': 'à®“à®Ÿà¯ à®µà¯‡à®²à¯ˆà®¯à®¾à®³à®°à¯',
+    },
+    'Roofer': {
+      'en': 'Roofer',
+      'si': 'à·€à·„à¶½à·Š à¶šà·à¶»à·Šà¶¸à·’à¶šà¶º',
+      'ta': 'à®•à¯‚à®°à¯ˆ à®µà¯‡à®²à¯ˆà®¯à®¾à®³à®°à¯',
+    },
   };
   return translations[category]?[lang] ?? category;
 }
@@ -527,8 +588,8 @@ class _AppRootState extends State<AppRoot> {
             _screenErrors[screenKey] ??
             _txt(
               'Something went wrong while loading this screen.',
-              'මෙම තිරය පූරණය කිරීමේදී දෝෂයක් ඇති විය.',
-              'இந்த திரையை ஏற்றும் போது பிழை ஏற்பட்டது.',
+              'à¶¸à·™à¶¸ à¶­à·’à¶»à¶º à¶´à·–à¶»à¶«à¶º à¶šà·’à¶»à·“à¶¸à·šà¶¯à·“ à¶¯à·à·‚à¶ºà¶šà·Š à¶‡à¶­à·’ à·€à·’à¶º.',
+              'à®‡à®¨à¯à®¤ à®¤à®¿à®°à¯ˆà®¯à¯ˆ à®à®±à¯à®±à¯à®®à¯ à®ªà¯‹à®¤à¯ à®ªà®¿à®´à¯ˆ à®à®±à¯à®ªà®Ÿà¯à®Ÿà®¤à¯.',
             ),
         onRetry: () => _retryScreen(screenKey),
       );
@@ -541,8 +602,8 @@ class _AppRootState extends State<AppRoot> {
             emptyMessage ??
             _txt(
               'Nothing to show yet.',
-              'තවම පෙන්වීමට කිසිවක් නැත.',
-              'காண்பிக்க இதுவரை எதுவும் இல்லை.',
+              'à¶­à·€à¶¸ à¶´à·™à¶±à·Šà·€à·“à¶¸à¶§ à¶šà·’à·ƒà·’à·€à¶šà·Š à¶±à·à¶­.',
+              'à®•à®¾à®£à¯à®ªà®¿à®•à¯à®• à®‡à®¤à¯à®µà®°à¯ˆ à®Žà®¤à¯à®µà¯à®®à¯ à®‡à®²à¯à®²à¯ˆ.',
             ),
         actionLabel: emptyActionLabel,
         onAction: onEmptyAction,
@@ -565,8 +626,8 @@ class _AppRootState extends State<AppRoot> {
         title: title,
         message: _txt(
           'Failed to render this screen. Tap retry.',
-          'මෙම තිරය පෙන්වීමට අසමත් විය. නැවත උත්සාහ කරන්න.',
-          'இந்த திரையை காட்ட முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
+          'à¶¸à·™à¶¸ à¶­à·’à¶»à¶º à¶´à·™à¶±à·Šà·€à·“à¶¸à¶§ à¶…à·ƒà¶¸à¶­à·Š à·€à·’à¶º. à¶±à·à·€à¶­ à¶‹à¶­à·Šà·ƒà·à·„ à¶šà¶»à¶±à·Šà¶±.',
+          'à®‡à®¨à¯à®¤ à®¤à®¿à®°à¯ˆà®¯à¯ˆ à®•à®¾à®Ÿà¯à®Ÿ à®®à¯à®Ÿà®¿à®¯à®µà®¿à®²à¯à®²à¯ˆ. à®®à¯€à®£à¯à®Ÿà¯à®®à¯ à®®à¯à®¯à®±à¯à®šà®¿à®•à¯à®•à®µà¯à®®à¯.',
         ),
         onRetry: () => _retryScreen(screenKey),
       );
@@ -660,7 +721,11 @@ class _AppRootState extends State<AppRoot> {
       if (_showSignup) {
         return _buildStatefulRoute(
           screenKey: 'signup',
-          title: _txt('Sign Up', 'ලියාපදිංචි වන්න', 'பதிவு செய்யவும்'),
+          title: _txt(
+            'Sign Up',
+            'à¶½à·’à¶ºà·à¶´à¶¯à·’à¶‚à¶ à·’ à·€à¶±à·Šà¶±',
+            'à®ªà®¤à®¿à®µà¯ à®šà¯†à®¯à¯à®¯à®µà¯à®®à¯',
+          ),
           builder: () => _withSelectedLocale(
             SignupScreen(
               theme: _theme,
@@ -676,7 +741,7 @@ class _AppRootState extends State<AppRoot> {
       }
       return _buildStatefulRoute(
         screenKey: 'login',
-        title: _txt('Login', 'පිවිසුම', 'உள்நுழை'),
+        title: _txt('Login', 'à¶´à·’à·€à·’à·ƒà·”à¶¸', 'à®‰à®³à¯à®¨à¯à®´à¯ˆ'),
         builder: () => _withSelectedLocale(
           LoginScreen(
             theme: _theme,
@@ -694,7 +759,11 @@ class _AppRootState extends State<AppRoot> {
     if (_activeTab == 'bookings') {
       return _buildStatefulRoute(
         screenKey: 'bookings',
-        title: _txt('Bookings', 'වෙන්කිරීම්', 'முன்பதிவுகள்'),
+        title: _txt(
+          'Bookings',
+          'à·€à·™à¶±à·Šà¶šà·’à¶»à·“à¶¸à·Š',
+          'à®®à¯à®©à¯à®ªà®¤à®¿à®µà¯à®•à®³à¯',
+        ),
         builder: () => _withSelectedLocale(
           BookingsManagementScreen(
             theme: _theme,
@@ -708,12 +777,12 @@ class _AppRootState extends State<AppRoot> {
     if (_activeTab == 'chat') {
       return _buildStatefulRoute(
         screenKey: 'chat',
-        title: _txt('Chat', 'සංවාද', 'அரட்டை'),
+        title: _txt('Chat', 'à·ƒà¶‚à·€à·à¶¯', 'à®…à®°à®Ÿà¯à®Ÿà¯ˆ'),
         forceEmpty: false,
         emptyMessage: _txt(
           'No messages yet.',
-          'තවම පණිවිඩ නොමැත.',
-          'இதுவரை செய்திகள் இல்லை.',
+          'à¶­à·€à¶¸ à¶´à¶«à·’à·€à·’à¶© à¶±à·œà¶¸à·à¶­.',
+          'à®‡à®¤à¯à®µà®°à¯ˆ à®šà¯†à®¯à¯à®¤à®¿à®•à®³à¯ à®‡à®²à¯à®²à¯ˆ.',
         ),
         builder: () => _withSelectedLocale(
           ChatScreen(
@@ -728,7 +797,11 @@ class _AppRootState extends State<AppRoot> {
     if (_activeTab == 'settings') {
       return _buildStatefulRoute(
         screenKey: 'settings',
-        title: _txt('Settings', 'සැකසීම්', 'அமைப்புகள்'),
+        title: _txt(
+          'Settings',
+          'à·ƒà·à¶šà·ƒà·“à¶¸à·Š',
+          'à®…à®®à¯ˆà®ªà¯à®ªà¯à®•à®³à¯',
+        ),
         builder: () => _withSelectedLocale(
           separate.SettingsScreen(
             language: _selectedLanguage,
@@ -760,17 +833,21 @@ class _AppRootState extends State<AppRoot> {
     if (_currentScreen == 'notifications') {
       return _buildStatefulRoute(
         screenKey: 'notifications',
-        title: _txt('Notifications', 'දැනුම්දීම්', 'அறிவிப்புகள்'),
+        title: _txt(
+          'Notifications',
+          'à¶¯à·à¶±à·”à¶¸à·Šà¶¯à·“à¶¸à·Š',
+          'à®…à®±à®¿à®µà®¿à®ªà¯à®ªà¯à®•à®³à¯',
+        ),
         forceEmpty: !_notificationSettings.values.any((isEnabled) => isEnabled),
         emptyMessage: _txt(
           'All notification types are turned off. Enable one in Settings.',
-          'සියලු දැනුම්දීම් වර්ග අක්‍රියයි. සැකසීම් තුළ එකක් සක්‍රිය කරන්න.',
-          'அனைத்து அறிவிப்பு வகைகளும் அணைக்கப்பட்டுள்ளன. அமைப்புகளில் ஒன்றை இயக்கவும்.',
+          'à·ƒà·’à¶ºà¶½à·” à¶¯à·à¶±à·”à¶¸à·Šà¶¯à·“à¶¸à·Š à·€à¶»à·Šà¶œ à¶…à¶šà·Šâ€à¶»à·’à¶ºà¶ºà·’. à·ƒà·à¶šà·ƒà·“à¶¸à·Š à¶­à·”à·… à¶‘à¶šà¶šà·Š à·ƒà¶šà·Šâ€à¶»à·’à¶º à¶šà¶»à¶±à·Šà¶±.',
+          'à®…à®©à¯ˆà®¤à¯à®¤à¯ à®…à®±à®¿à®µà®¿à®ªà¯à®ªà¯ à®µà®•à¯ˆà®•à®³à¯à®®à¯ à®…à®£à¯ˆà®•à¯à®•à®ªà¯à®ªà®Ÿà¯à®Ÿà¯à®³à¯à®³à®©. à®…à®®à¯ˆà®ªà¯à®ªà¯à®•à®³à®¿à®²à¯ à®’à®©à¯à®±à¯ˆ à®‡à®¯à®•à¯à®•à®µà¯à®®à¯.',
         ),
         emptyActionLabel: _txt(
           'Open Settings',
-          'සැකසීම් විවෘත කරන්න',
-          'அமைப்புகளைத் திறக்கவும்',
+          'à·ƒà·à¶šà·ƒà·“à¶¸à·Š à·€à·’à·€à·˜à¶­ à¶šà¶»à¶±à·Šà¶±',
+          'à®…à®®à¯ˆà®ªà¯à®ªà¯à®•à®³à¯ˆà®¤à¯ à®¤à®¿à®±à®•à¯à®•à®µà¯à®®à¯',
         ),
         onEmptyAction: () => setState(() {
           _activeTab = 'settings';
@@ -791,14 +868,23 @@ class _AppRootState extends State<AppRoot> {
     if (_currentScreen == 'findWorker') {
       return _buildStatefulRoute(
         screenKey: 'find-worker',
-        title: _txt('Find Worker', 'සේවකයෙකු සොයන්න', 'பணியாளரைத் தேடு'),
+        title: _txt(
+          'Find Worker',
+          'à·ƒà·šà·€à¶šà¶ºà·™à¶šà·” à·ƒà·œà¶ºà¶±à·Šà¶±',
+          'à®ªà®£à®¿à®¯à®¾à®³à®°à¯ˆà®¤à¯ à®¤à¯‡à®Ÿà¯',
+        ),
         builder: () => _withSelectedLocale(
           FindWorkerScreen(
             theme: _theme,
             language: _selectedLanguage,
             workerType: _bookingContext['workerType'] ?? '',
             userAddress: _bookingContext['address'] ?? '',
+            jobId: _bookingContext['jobId'] ?? '',
             onBack: () => setState(() => _currentScreen = 'home'),
+            onBidReceived: () => setState(() {
+              _activeTab = 'bookings';
+              _currentScreen = 'home';
+            }),
           ),
         ),
       );
@@ -807,7 +893,11 @@ class _AppRootState extends State<AppRoot> {
     if (_currentScreen == 'booking') {
       return _buildStatefulRoute(
         screenKey: 'booking',
-        title: _txt('Booking', 'වෙන්කිරීම', 'முன்பதிவு'),
+        title: _txt(
+          'Booking',
+          'à·€à·™à¶±à·Šà¶šà·’à¶»à·“à¶¸',
+          'à®®à¯à®©à¯à®ªà®¤à®¿à®µà¯',
+        ),
         builder: () => _withSelectedLocale(
           booking_ui.BookingScreen(
             initialWorkerCategory:
@@ -822,26 +912,68 @@ class _AppRootState extends State<AppRoot> {
               _selectedWorker = null;
               _bookingContext = {};
             }),
-            onPostJobRequest: (jobRequest) {
-              setState(() {
-                _activeTab = 'bookings';
-                _currentScreen = 'home';
-                _selectedWorker = null;
-                _bookingContext = {};
-              });
-              // Navigate to bookings tab and show confirmation.
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    getCategoryTranslation(
-                      'Job posted! Opening Bookings to view bids.',
-                      _selectedLanguage,
+            onPostJobRequest: (jobRequest) async {
+              try {
+                // Get current user
+                final currentUser = FirebaseAuth.instance.currentUser;
+                if (currentUser == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('User not authenticated')),
+                  );
+                  return;
+                }
+
+                // Create job document in Firestore
+                final jobsRef = FirebaseFirestore.instance.collection('jobs');
+                final newJobDoc = await jobsRef.add({
+                  'customerId': currentUser.uid,
+                  'customerName': currentUser.displayName ?? 'User',
+                  'workerType': jobRequest['workerType'],
+                  'title': jobRequest['title'],
+                  'address': jobRequest['address'],
+                  'latitude': jobRequest['latitude'],
+                  'longitude': jobRequest['longitude'],
+                  'date': jobRequest['date'],
+                  'timeSlot': jobRequest['timeSlot'],
+                  'requestMode': jobRequest['requestMode'],
+                  'serviceDescription': jobRequest['serviceDescription'],
+                  'minBudget': jobRequest['minBudget'],
+                  'maxBudget': jobRequest['maxBudget'],
+                  'photos': jobRequest['photos'] ?? [],
+                  'status': 'open',
+                  'createdAt': FieldValue.serverTimestamp(),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                });
+
+                // Store job context and navigate to Find Worker
+                setState(() {
+                  _bookingContext = {
+                    'workerType': jobRequest['workerType'] as String,
+                    'address': jobRequest['address'] as String,
+                    'jobId': newJobDoc.id,
+                  };
+                  _currentScreen = 'findWorker';
+                  _selectedWorker = null;
+                });
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      _txt(
+                        'Job posted! Searching for workers...',
+                        'à¶»à·à¶šà·’à¶ºà· à¶´à·… à¶šà¶»à¶± à¶½à¶¯à·“! à·ƒà·šà·€à¶šà¶ºà¶±à·Š à·ƒà·œà¶ºà¶¸à·’à¶±à·Š...',
+                        'à®µà¯‡à®²à¯ˆ à®µà¯†à®³à®¿à®¯à®¿à®Ÿà®ªà¯à®ªà®Ÿà¯à®Ÿà®¤à¯! à®¤à¯Šà®´à®¿à®²à®¾à®³à®°à¯à®•à®³à¯ˆà®¤à¯ à®¤à¯‡à®Ÿà¯à®•à®¿à®±à®¤à¯...',
+                      ),
                     ),
+                    backgroundColor: Colors.green,
+                    duration: const Duration(seconds: 3),
                   ),
-                  backgroundColor: Colors.green,
-                  duration: const Duration(seconds: 3),
-                ),
-              );
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error posting job: $e')),
+                );
+              }
             },
           ),
         ),
@@ -851,14 +983,22 @@ class _AppRootState extends State<AppRoot> {
     if (_currentScreen == 'workerType') {
       return _buildStatefulRoute(
         screenKey: 'worker-type',
-        title: _txt('Worker Types', 'සේවක වර්ග', 'பணியாளர் வகைகள்'),
+        title: _txt(
+          'Worker Types',
+          'à·ƒà·šà·€à¶š à·€à¶»à·Šà¶œ',
+          'à®ªà®£à®¿à®¯à®¾à®³à®°à¯ à®µà®•à¯ˆà®•à®³à¯',
+        ),
         forceEmpty: kWorkers.where((w) => w.available).isEmpty,
         emptyMessage: _txt(
           'No workers are currently available. Please try again soon.',
-          'දැනට සේවකයින් නොමැත. කරුණාකර පසුව නැවත උත්සාහ කරන්න.',
-          'தற்போது பணியாளர்கள் இல்லை. பின்னர் மீண்டும் முயற்சிக்கவும்.',
+          'à¶¯à·à¶±à¶§ à·ƒà·šà·€à¶šà¶ºà·’à¶±à·Š à¶±à·œà¶¸à·à¶­. à¶šà¶»à·”à¶«à·à¶šà¶» à¶´à·ƒà·”à·€ à¶±à·à·€à¶­ à¶‹à¶­à·Šà·ƒà·à·„ à¶šà¶»à¶±à·Šà¶±.',
+          'à®¤à®±à¯à®ªà¯‹à®¤à¯ à®ªà®£à®¿à®¯à®¾à®³à®°à¯à®•à®³à¯ à®‡à®²à¯à®²à¯ˆ. à®ªà®¿à®©à¯à®©à®°à¯ à®®à¯€à®£à¯à®Ÿà¯à®®à¯ à®®à¯à®¯à®±à¯à®šà®¿à®•à¯à®•à®µà¯à®®à¯.',
         ),
-        emptyActionLabel: _txt('Back Home', 'මුල් පිටුවට', 'முகப்பிற்கு'),
+        emptyActionLabel: _txt(
+          'Back Home',
+          'à¶¸à·”à¶½à·Š à¶´à·’à¶§à·”à·€à¶§',
+          'à®®à¯à®•à®ªà¯à®ªà®¿à®±à¯à®•à¯',
+        ),
         onEmptyAction: () => setState(() => _currentScreen = 'home'),
         builder: () => _withSelectedLocale(
           worker_ui.WorkerTypeScreen(
@@ -890,17 +1030,21 @@ class _AppRootState extends State<AppRoot> {
     // Main home screen
     return _buildStatefulRoute(
       screenKey: 'home',
-      title: _txt('Home', 'මුල් පිටුව', 'முகப்பு'),
+      title: _txt(
+        'Home',
+        'à¶¸à·”à¶½à·Š à¶´à·’à¶§à·”à·€',
+        'à®®à¯à®•à®ªà¯à®ªà¯',
+      ),
       forceEmpty: _addresses.isEmpty,
       emptyMessage: _txt(
         'No saved addresses yet. Add one to start booking services.',
-        'තවම සුරකින ලද ලිපින නැත. සේවා වෙන්කිරීම සඳහා එකක් එක් කරන්න.',
-        'சேமிக்கப்பட்ட முகவரிகள் இல்லை. சேவைகளை முன்பதிவு செய்ய ஒன்றை சேர்க்கவும்.',
+        'à¶­à·€à¶¸ à·ƒà·”à¶»à¶šà·’à¶± à¶½à¶¯ à¶½à·’à¶´à·’à¶± à¶±à·à¶­. à·ƒà·šà·€à· à·€à·™à¶±à·Šà¶šà·’à¶»à·“à¶¸ à·ƒà¶³à·„à· à¶‘à¶šà¶šà·Š à¶‘à¶šà·Š à¶šà¶»à¶±à·Šà¶±.',
+        'à®šà¯‡à®®à®¿à®•à¯à®•à®ªà¯à®ªà®Ÿà¯à®Ÿ à®®à¯à®•à®µà®°à®¿à®•à®³à¯ à®‡à®²à¯à®²à¯ˆ. à®šà¯‡à®µà¯ˆà®•à®³à¯ˆ à®®à¯à®©à¯à®ªà®¤à®¿à®µà¯ à®šà¯†à®¯à¯à®¯ à®’à®©à¯à®±à¯ˆ à®šà¯‡à®°à¯à®•à¯à®•à®µà¯à®®à¯.',
       ),
       emptyActionLabel: _txt(
         'Add Current Location',
-        'වත්මන් ස්ථානය එක් කරන්න',
-        'தற்போதைய இடத்தைச் சேர்க்கவும்',
+        'à·€à¶­à·Šà¶¸à¶±à·Š à·ƒà·Šà¶®à·à¶±à¶º à¶‘à¶šà·Š à¶šà¶»à¶±à·Šà¶±',
+        'à®¤à®±à¯à®ªà¯‹à®¤à¯ˆà®¯ à®‡à®Ÿà®¤à¯à®¤à¯ˆà®šà¯ à®šà¯‡à®°à¯à®•à¯à®•à®µà¯à®®à¯',
       ),
       onEmptyAction: () => setState(() {
         _addresses = const [
@@ -1024,7 +1168,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return '';
     }
     final a = widget.addresses[widget.selectedAddressIndex];
-    return a.label != null ? '${a.label} • ${a.address}' : a.address;
+    return a.label != null ? '${a.label} â€¢ ${a.address}' : a.address;
   }
 
   List<Map<String, String>> get _searchResults {
@@ -1057,8 +1201,8 @@ class _HomeScreenState extends State<HomeScreen> {
         'label': lang == 'en'
             ? 'Worker Types'
             : lang == 'si'
-            ? 'සේවක වර්ග'
-            : 'பணியாளர் வகைகள்',
+            ? 'à·ƒà·šà·€à¶š à·€à¶»à·Šà¶œ'
+            : 'à®ªà®£à®¿à®¯à®¾à®³à®°à¯ à®µà®•à¯ˆà®•à®³à¯',
         'action': 'workerType',
       },
       {'id': 'nav-bookings', 'label': 'Bookings', 'action': 'bookings'},
@@ -1067,8 +1211,8 @@ class _HomeScreenState extends State<HomeScreen> {
         'label': lang == 'en'
             ? 'Chat'
             : lang == 'si'
-            ? 'සංවාද'
-            : 'அரட்டை',
+            ? 'à·ƒà¶‚à·€à·à¶¯'
+            : 'à®…à®°à®Ÿà¯à®Ÿà¯ˆ',
         'action': 'chat',
       },
       {
@@ -1076,8 +1220,8 @@ class _HomeScreenState extends State<HomeScreen> {
         'label': lang == 'en'
             ? 'Notifications'
             : lang == 'si'
-            ? 'දැනුම්දීම්'
-            : 'அறிவிப்புகள்',
+            ? 'à¶¯à·à¶±à·”à¶¸à·Šà¶¯à·“à¶¸à·Š'
+            : 'à®…à®±à®¿à®µà®¿à®ªà¯à®ªà¯à®•à®³à¯',
         'action': 'notifications',
       },
     ];
@@ -1165,8 +1309,8 @@ class _HomeScreenState extends State<HomeScreen> {
             '${t.edit} ${lang == 'en'
                 ? 'Address'
                 : lang == 'si'
-                ? 'ලිපිනය'
-                : 'முகவரி'}',
+                ? 'à¶½à·’à¶´à·’à¶±à¶º'
+                : 'à®®à¯à®•à®µà®°à®¿'}',
             style: TextStyle(
               color: theme.textPrimary,
               fontSize: 16,
@@ -1182,8 +1326,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   hintText: lang == 'en'
                       ? 'Label (Home, Work)...'
                       : lang == 'si'
-                      ? 'ලේබලය (ගෘහ, සේවා)...'
-                      : 'லேபல் (வீடு, வேலை)...',
+                      ? 'à¶½à·šà¶¶à¶½à¶º (à¶œà·˜à·„, à·ƒà·šà·€à·)...'
+                      : 'à®²à¯‡à®ªà®²à¯ (à®µà¯€à®Ÿà¯, à®µà¯‡à®²à¯ˆ)...',
                   hintStyle: TextStyle(color: theme.inputPlaceholder),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -1200,8 +1344,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   hintText: lang == 'en'
                       ? 'Enter address'
                       : lang == 'si'
-                      ? 'ලිපිනය ඇතුළත් කරන්න'
-                      : 'முகவரியை உள்ளிடவும்',
+                      ? 'à¶½à·’à¶´à·’à¶±à¶º à¶‡à¶­à·”à·…à¶­à·Š à¶šà¶»à¶±à·Šà¶±'
+                      : 'à®®à¯à®•à®µà®°à®¿à®¯à¯ˆ à®‰à®³à¯à®³à®¿à®Ÿà®µà¯à®®à¯',
                   hintStyle: TextStyle(color: theme.inputPlaceholder),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -1279,8 +1423,8 @@ class _HomeScreenState extends State<HomeScreen> {
           lang == 'en'
               ? 'Address Actions'
               : lang == 'si'
-              ? 'ලිපිනය ක්‍රියා'
-              : 'முகவரி நடவடிக்கைகள்',
+              ? 'à¶½à·’à¶´à·’à¶±à¶º à¶šà·Šâ€à¶»à·’à¶ºà·'
+              : 'à®®à¯à®•à®µà®°à®¿ à®¨à®Ÿà®µà®Ÿà®¿à®•à¯à®•à¯ˆà®•à®³à¯',
           style: TextStyle(
             color: theme.textPrimary,
             fontWeight: FontWeight.w700,
@@ -1293,8 +1437,8 @@ class _HomeScreenState extends State<HomeScreen> {
               lang == 'en'
                   ? 'Edit'
                   : lang == 'si'
-                  ? 'සංස්කරණය'
-                  : 'திருத்து',
+                  ? 'à·ƒà¶‚à·ƒà·Šà¶šà¶»à¶«à¶º'
+                  : 'à®¤à®¿à®°à¯à®¤à¯à®¤à¯',
               Icons.edit_outlined,
               Colors.blueGrey,
               () {
@@ -1306,8 +1450,8 @@ class _HomeScreenState extends State<HomeScreen> {
               lang == 'en'
                   ? 'Delete'
                   : lang == 'si'
-                  ? 'මකන්න'
-                  : 'நீக்கு',
+                  ? 'à¶¸à¶šà¶±à·Šà¶±'
+                  : 'à®¨à¯€à®•à¯à®•à¯',
               Icons.delete_outline,
               Colors.red,
               () {
@@ -1324,8 +1468,8 @@ class _HomeScreenState extends State<HomeScreen> {
               lang == 'en'
                   ? 'Set as Default'
                   : lang == 'si'
-                  ? 'පෙරනිමි ලෙස සකසන්න'
-                  : 'இயல்புநிலையாக அமைக்கவும்',
+                  ? 'à¶´à·™à¶»à¶±à·’à¶¸à·’ à¶½à·™à·ƒ à·ƒà¶šà·ƒà¶±à·Šà¶±'
+                  : 'à®‡à®¯à®²à¯à®ªà¯à®¨à®¿à®²à¯ˆà®¯à®¾à®• à®…à®®à¯ˆà®•à¯à®•à®µà¯à®®à¯',
               Icons.home_outlined,
               const Color(0xFF0B1533),
               () {
@@ -1343,8 +1487,8 @@ class _HomeScreenState extends State<HomeScreen> {
               lang == 'en'
                   ? 'Pin / Unpin'
                   : lang == 'si'
-                  ? 'පින් කරන්න/ඉවත් කරන්න'
-                  : 'பின்/அன்-பின்',
+                  ? 'à¶´à·’à¶±à·Š à¶šà¶»à¶±à·Šà¶±/à¶‰à·€à¶­à·Š à¶šà¶»à¶±à·Šà¶±'
+                  : 'à®ªà®¿à®©à¯/à®…à®©à¯-à®ªà®¿à®©à¯',
               Icons.push_pin_outlined,
               Colors.orange,
               () {
@@ -1420,8 +1564,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             lang == 'en'
                                 ? 'What are you looking for today?'
                                 : lang == 'si'
-                                ? 'අද ඔබ සොයන්නේ කුමක්ද?'
-                                : 'இன்று நீங்கள் என்ன தேடுகிறீர்கள்?',
+                                ? 'à¶…à¶¯ à¶”à¶¶ à·ƒà·œà¶ºà¶±à·Šà¶±à·š à¶šà·”à¶¸à¶šà·Šà¶¯?'
+                                : 'à®‡à®©à¯à®±à¯ à®¨à¯€à®™à¯à®•à®³à¯ à®Žà®©à¯à®© à®¤à¯‡à®Ÿà¯à®•à®¿à®±à¯€à®°à¯à®•à®³à¯?',
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 16,
@@ -1537,8 +1681,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           lang == 'en'
                               ? 'Book trusted workers in minutes'
                               : lang == 'si'
-                              ? 'විශ්වාසදායක සේවකයන් ඉක්මනින් වෙන්කරගන්න'
-                              : 'நம்பகமான தொழிலாளர்களை நிமிடங்களில் முன்பதிவு செய்யவும்',
+                              ? 'à·€à·’à·à·Šà·€à·à·ƒà¶¯à·à¶ºà¶š à·ƒà·šà·€à¶šà¶ºà¶±à·Š à¶‰à¶šà·Šà¶¸à¶±à·’à¶±à·Š à·€à·™à¶±à·Šà¶šà¶»à¶œà¶±à·Šà¶±'
+                              : 'à®¨à®®à¯à®ªà®•à®®à®¾à®© à®¤à¯Šà®´à®¿à®²à®¾à®³à®°à¯à®•à®³à¯ˆ à®¨à®¿à®®à®¿à®Ÿà®™à¯à®•à®³à®¿à®²à¯ à®®à¯à®©à¯à®ªà®¤à®¿à®µà¯ à®šà¯†à®¯à¯à®¯à®µà¯à®®à¯',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.82),
                             fontSize: 13,
@@ -1616,8 +1760,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ? (lang == 'en'
                                         ? 'Select delivery location'
                                         : lang == 'si'
-                                        ? 'ස්ථානය තෝරන්න'
-                                        : 'இடத்தைத் தேர்ந்தெடுக்கவும்')
+                                        ? 'à·ƒà·Šà¶®à·à¶±à¶º à¶­à·à¶»à¶±à·Šà¶±'
+                                        : 'à®‡à®Ÿà®¤à¯à®¤à¯ˆà®¤à¯ à®¤à¯‡à®°à¯à®¨à¯à®¤à¯†à®Ÿà¯à®•à¯à®•à®µà¯à®®à¯')
                                   : _addressDisplayText,
                               style: const TextStyle(
                                 color: Colors.white,
@@ -1699,8 +1843,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       label: lang == 'en'
                           ? '12+ services'
                           : lang == 'si'
-                          ? 'සේවා 12+'
-                          : '12+ சேவைகள்',
+                          ? 'à·ƒà·šà·€à· 12+'
+                          : '12+ à®šà¯‡à®µà¯ˆà®•à®³à¯',
                     ),
                     const SizedBox(width: 8),
                     _buildHeaderChip(
@@ -1708,8 +1852,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       label: lang == 'en'
                           ? '${widget.addresses.length} saved places'
                           : lang == 'si'
-                          ? 'ස්ථාන ${widget.addresses.length}'
-                          : '${widget.addresses.length} சேமித்த இடங்கள்',
+                          ? 'à·ƒà·Šà¶®à·à¶± ${widget.addresses.length}'
+                          : '${widget.addresses.length} à®šà¯‡à®®à®¿à®¤à¯à®¤ à®‡à®Ÿà®™à¯à®•à®³à¯',
                     ),
                     const SizedBox(width: 8),
                     _buildHeaderChip(
@@ -1717,8 +1861,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       label: lang == 'en'
                           ? 'Fast response'
                           : lang == 'si'
-                          ? 'වේගවත් ප්‍රතිචාර'
-                          : 'வேகமான பதில்',
+                          ? 'à·€à·šà¶œà·€à¶­à·Š à¶´à·Šâ€à¶»à¶­à·’à¶ à·à¶»'
+                          : 'à®µà¯‡à®•à®®à®¾à®© à®ªà®¤à®¿à®²à¯',
                     ),
                   ],
                 ),
@@ -1781,8 +1925,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     lang == 'en'
                         ? 'No results'
                         : lang == 'si'
-                        ? 'ලබාගත නොහැක'
-                        : 'முடிவுகள் இல்லை',
+                        ? 'à¶½à¶¶à·à¶œà¶­ à¶±à·œà·„à·à¶š'
+                        : 'à®®à¯à®Ÿà®¿à®µà¯à®•à®³à¯ à®‡à®²à¯à®²à¯ˆ',
                     style: TextStyle(color: theme.textSecondary, fontSize: 14),
                   ),
                 ],
@@ -1851,13 +1995,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ? (lang == 'en'
                                           ? 'Category'
                                           : lang == 'si'
-                                          ? 'වර්ගය'
-                                          : 'வகை')
+                                          ? 'à·€à¶»à·Šà¶œà¶º'
+                                          : 'à®µà®•à¯ˆ')
                                     : (lang == 'en'
                                           ? 'Go to'
                                           : lang == 'si'
-                                          ? 'ට යන්න'
-                                          : 'போதை'),
+                                          ? 'à¶§ à¶ºà¶±à·Šà¶±'
+                                          : 'à®ªà¯‹à®¤à¯ˆ'),
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: theme.textSecondary,
@@ -1905,8 +2049,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   label: lang == 'en'
                       ? 'More'
                       : lang == 'si'
-                      ? 'තවත්'
-                      : 'மேலும்',
+                      ? 'à¶­à·€à¶­à·Š'
+                      : 'à®®à¯‡à®²à¯à®®à¯',
                   isMore: true,
                   theme: theme,
                   onPress: widget.onShowCategories,
@@ -1954,8 +2098,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     lang == 'en'
                         ? 'Need a Worker Now?'
                         : lang == 'si'
-                        ? 'දැන් සේවකයෙකු අවශ්‍යද?'
-                        : 'இப்போது பணியாளர் தேவையா?',
+                        ? 'à¶¯à·à¶±à·Š à·ƒà·šà·€à¶šà¶ºà·™à¶šà·” à¶…à·€à·à·Šâ€à¶ºà¶¯?'
+                        : 'à®‡à®ªà¯à®ªà¯‹à®¤à¯ à®ªà®£à®¿à®¯à®¾à®³à®°à¯ à®¤à¯‡à®µà¯ˆà®¯à®¾?',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -1967,8 +2111,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     lang == 'en'
                         ? 'Get instant booking for your service'
                         : lang == 'si'
-                        ? 'ඔබේ සේවාව සඳහා ක්ෂණික වෙන්කිරීමක්'
-                        : 'உங்கள் சேவைக்கு உடனடி முன்பதிவு',
+                        ? 'à¶”à¶¶à·š à·ƒà·šà·€à·à·€ à·ƒà¶³à·„à· à¶šà·Šà·‚à¶«à·’à¶š à·€à·™à¶±à·Šà¶šà·’à¶»à·“à¶¸à¶šà·Š'
+                        : 'à®‰à®™à¯à®•à®³à¯ à®šà¯‡à®µà¯ˆà®•à¯à®•à¯ à®‰à®Ÿà®©à®Ÿà®¿ à®®à¯à®©à¯à®ªà®¤à®¿à®µà¯',
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.white.withAlpha(204),
@@ -2035,8 +2179,8 @@ class _HomeScreenState extends State<HomeScreen> {
           label: lang == 'en'
               ? 'Chat'
               : lang == 'si'
-              ? 'සංවාද'
-              : 'அரட்டை',
+              ? 'à·ƒà¶‚à·€à·à¶¯'
+              : 'à®…à®°à®Ÿà¯à®Ÿà¯ˆ',
         ),
         NavigationDestination(
           icon: const Icon(Icons.settings_outlined),
@@ -2044,8 +2188,8 @@ class _HomeScreenState extends State<HomeScreen> {
           label: lang == 'en'
               ? 'Settings'
               : lang == 'si'
-              ? 'සැකසීම්'
-              : 'அமைப்புகள்',
+              ? 'à·ƒà·à¶šà·ƒà·“à¶¸à·Š'
+              : 'à®…à®®à¯ˆà®ªà¯à®ªà¯à®•à®³à¯',
         ),
       ],
     );
@@ -2123,8 +2267,8 @@ class _LocationModalSheetState extends State<_LocationModalSheet> {
               lang == 'en'
                   ? 'Select Address'
                   : lang == 'si'
-                  ? 'ලිපිනය තෝරන්න'
-                  : 'முகவரியைத் தேர்ந்தெடுக்கவும்',
+                  ? 'à¶½à·’à¶´à·’à¶±à¶º à¶­à·à¶»à¶±à·Šà¶±'
+                  : 'à®®à¯à®•à®µà®°à®¿à®¯à¯ˆà®¤à¯ à®¤à¯‡à®°à¯à®¨à¯à®¤à¯†à®Ÿà¯à®•à¯à®•à®µà¯à®®à¯',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -2142,8 +2286,8 @@ class _LocationModalSheetState extends State<_LocationModalSheet> {
                       hintText: lang == 'en'
                           ? 'Search saved addresses'
                           : lang == 'si'
-                          ? 'ලියන ලිපින හි සොයන්න'
-                          : 'சேமிக்கப்பட்ட முகவரிகளை தேடவும்',
+                          ? 'à¶½à·’à¶ºà¶± à¶½à·’à¶´à·’à¶± à·„à·’ à·ƒà·œà¶ºà¶±à·Šà¶±'
+                          : 'à®šà¯‡à®®à®¿à®•à¯à®•à®ªà¯à®ªà®Ÿà¯à®Ÿ à®®à¯à®•à®µà®°à®¿à®•à®³à¯ˆ à®¤à¯‡à®Ÿà®µà¯à®®à¯',
                       hintStyle: TextStyle(color: theme.inputPlaceholder),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -2218,7 +2362,7 @@ class _LocationModalSheetState extends State<_LocationModalSheet> {
                               children: [
                                 Text(
                                   addr.label != null
-                                      ? '${addr.label} • ${addr.address}'
+                                      ? '${addr.label} â€¢ ${addr.address}'
                                       : addr.address,
                                   style: TextStyle(
                                     fontSize: 14,
@@ -2280,8 +2424,8 @@ class _LocationModalSheetState extends State<_LocationModalSheet> {
                   lang == 'en'
                       ? 'Edit selected address'
                       : lang == 'si'
-                      ? 'තෝරාගත් ලිපිනය සංස්කරණය කරන්න'
-                      : 'தேர்ந்தெடுக்கப்பட்ட முகவரியைத் திருத்தவும்',
+                      ? 'à¶­à·à¶»à·à¶œà¶­à·Š à¶½à·’à¶´à·’à¶±à¶º à·ƒà¶‚à·ƒà·Šà¶šà¶»à¶«à¶º à¶šà¶»à¶±à·Šà¶±'
+                      : 'à®¤à¯‡à®°à¯à®¨à¯à®¤à¯†à®Ÿà¯à®•à¯à®•à®ªà¯à®ªà®Ÿà¯à®Ÿ à®®à¯à®•à®µà®°à®¿à®¯à¯ˆà®¤à¯ à®¤à®¿à®°à¯à®¤à¯à®¤à®µà¯à®®à¯',
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2A2A2A),
@@ -2399,74 +2543,14 @@ class CategoryCircle extends StatelessWidget {
   }
 }
 
-// ============================================================
-// CHAT SCREEN
-// ============================================================
-class ChatScreen extends StatelessWidget {
-  final AppTheme theme;
-  final String language;
-  final VoidCallback onBack;
-
-  const ChatScreen({
-    super.key,
-    required this.theme,
-    required this.language,
-    required this.onBack,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: theme.background,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0B1533),
-        foregroundColor: Colors.white,
-        title: Text(
-          language == 'en'
-              ? 'Chat'
-              : language == 'si'
-              ? 'සංවාද'
-              : 'அரட்டை',
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: onBack,
-        ),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.chat_bubble_outline,
-              size: 64,
-              color: theme.textSecondary,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              language == 'en'
-                  ? 'No chats yet'
-                  : language == 'si'
-                  ? 'තවම සංවාද නොමැත'
-                  : 'இதுவரை அரட்டைகள் இல்லை',
-              style: TextStyle(fontSize: 18, color: theme.textSecondary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// FIND WORKER SCREEN
-// ============================================================
-class FindWorkerScreen extends StatelessWidget {
+class FindWorkerScreen extends StatefulWidget {
   final AppTheme theme;
   final String language;
   final String workerType;
   final String userAddress;
+  final String jobId;
   final VoidCallback onBack;
+  final VoidCallback onBidReceived;
 
   const FindWorkerScreen({
     super.key,
@@ -2474,57 +2558,401 @@ class FindWorkerScreen extends StatelessWidget {
     required this.language,
     required this.workerType,
     required this.userAddress,
+    required this.jobId,
     required this.onBack,
+    required this.onBidReceived,
   });
 
   @override
+  State<FindWorkerScreen> createState() => _FindWorkerScreenState();
+}
+
+class _FindWorkerScreenState extends State<FindWorkerScreen>
+    with TickerProviderStateMixin {
+  late AnimationController _scaleController;
+  late AnimationController _pulseController;
+  late Stream<QuerySnapshot> _bidsStream;
+  bool _cancelling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat();
+
+    // Listen to bids for this job
+    _bidsStream = FirebaseFirestore.instance
+        .collection('jobs')
+        .doc(widget.jobId)
+        .collection('bids')
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+
+    // Listen for first bid
+    _bidsStream.listen((snapshot) {
+      if (snapshot.docs.isNotEmpty && mounted) {
+        // Bid received! Navigate to bookings
+        widget.onBidReceived();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scaleController.dispose();
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  String _txt(String en, String si, String ta) {
+    switch (widget.language) {
+      case 'si':
+        return si;
+      case 'ta':
+        return ta;
+      default:
+        return en;
+    }
+  }
+
+  IconData _iconDataForCategory(String category) {
+    switch (category.toLowerCase()) {
+      case 'plumber':
+        return Icons.water;
+      case 'electrician':
+        return Icons.flash_on;
+      case 'mason':
+        return Icons.hardware;
+      case 'carpenter':
+        return Icons.construction;
+      case 'painter':
+        return Icons.brush;
+      case 'gardener':
+        return Icons.eco;
+      case 'cleaner':
+        return Icons.auto_awesome;
+      case 'ac technician':
+        return Icons.ac_unit;
+      case 'mechanic':
+        return Icons.build;
+      case 'welder':
+        return Icons.local_fire_department;
+      case 'tiler':
+        return Icons.layers;
+      case 'roofer':
+        return Icons.roofing;
+      default:
+        return Icons.handyman;
+    }
+  }
+
+  Color _colorForCategory(String category) {
+    switch (category.toLowerCase()) {
+      case 'plumber':
+        return const Color(0xFF3498DB);
+      case 'electrician':
+        return const Color(0xFFF39C12);
+      case 'mason':
+        return const Color(0xFFE74C3C);
+      case 'carpenter':
+        return const Color(0xFF8B4513);
+      case 'painter':
+        return const Color(0xFF9B59B6);
+      case 'gardener':
+        return const Color(0xFF27AE60);
+      case 'cleaner':
+        return const Color(0xFF1ABC9C);
+      case 'ac technician':
+        return const Color(0xFF16A085);
+      case 'mechanic':
+        return const Color(0xFF34495E);
+      case 'welder':
+        return const Color(0xFFC0392B);
+      case 'tiler':
+        return const Color(0xFF8E44AD);
+      case 'roofer':
+        return const Color(0xFF7D3C98);
+      default:
+        return const Color(0xFF666666);
+    }
+  }
+
+  Future<void> _handleCancel() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: widget.theme.cardBackground,
+        title: Text(
+          _txt(
+            'Cancel Request?',
+            'à¶‰à¶½à·Šà¶½à·“à¶¸ à¶…à·€à¶½à¶‚à¶œà·” à¶šà¶»à¶±à·Šà¶±?',
+            'à®•à¯‹à®°à®¿à®•à¯à®•à¯ˆ à®°à®¤à¯à®¤à¯ à®šà¯†à®¯à¯?',
+          ),
+          style: TextStyle(color: widget.theme.textPrimary),
+        ),
+        content: Text(
+          _txt(
+            'This will delete the job request. Workers won\'t be able to see it.',
+            'à¶¸à·™à¶º à¶»à·à¶šà·’à¶ºà· à¶‰à¶½à·Šà¶½à·“à¶¸ à¶¸à¶šà· à¶¯à¶¸à· à¶šà¶¸à·Šà¶šà¶»à·”à·€à¶±à·Š à¶‘à¶º à¶¯à¶šà·’à¶±à·Šà¶± à¶¶à·à¶»à·’ à·€à¶±à·” à¶‡à¶­.',
+            'à®‡à®¤à¯ à®µà¯‡à®²à¯ˆ à®•à¯‹à®°à®¿à®•à¯à®•à¯ˆà®¯à¯ˆ à®¨à¯€à®•à¯à®•à®¿ à®ªà®£à®¿à®¯à®¾à®³à®°à¯à®•à®³à¯ à®…à®¤à¯ˆà®•à¯ à®•à®¾à®£ à®®à¯à®Ÿà®¿à®¯à®¾à®¤à¯.',
+          ),
+          style: TextStyle(color: widget.theme.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              _txt(
+                'Keep It',
+                'à¶‘à¶º à¶­à¶¶à· à¶œà¶±à·Šà¶±',
+                'à®…à®¤à¯ˆ à®µà¯ˆà®¤à¯à®¤à®¿à®°à¯à®•à¯à®•à®µà¯à®®à¯',
+              ),
+              style: TextStyle(color: widget.theme.textSecondary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              _txt('Delete', 'à¶¸à¶šà¶±à·Šà¶±', 'à®¨à¯€à®•à¯à®•à¯'),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    if (!mounted) return;
+
+    setState(() => _cancelling = true);
+
+    try {
+      final jobDoc = FirebaseFirestore.instance
+          .collection('jobs')
+          .doc(widget.jobId);
+
+      // Get all bids for this job and delete them
+      final bidsSnapshot = await jobDoc.collection('bids').get();
+      for (var bid in bidsSnapshot.docs) {
+        await bid.reference.delete();
+      }
+
+      // Delete the job document itself
+      await jobDoc.delete();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _txt(
+              'Job request deleted',
+              'à¶»à·à¶šà·’à¶ºà· à¶‰à¶½à·Šà¶½à·“à¶¸ à¶¸à¶šà· à¶¯à¶¸à¶± à¶½à¶¯à·“',
+              'à®µà¯‡à®²à¯ˆ à®•à¯‹à®°à®¿à®•à¯à®•à¯ˆ à®¨à¯€à®•à¯à®•à®ªà¯à®ªà®Ÿà¯à®Ÿà®¤à¯',
+            ),
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+
+      widget.onBack();
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _cancelling = false);
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error cancelling request: $e')));
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_cancelling) {
+      return Scaffold(
+        backgroundColor: widget.theme.background,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(widget.theme.primary),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _txt(
+                  'Cancelling...',
+                  'à¶…à·€à¶½à¶‚à¶œà·” à¶šà¶»à¶¸à·’à¶±à·Š...',
+                  'à®°à®¤à¯à®¤à¯ à®šà¯†à®¯à¯à®¯à®ªà¯à®ªà®Ÿà¯à®•à®¿à®±à®¤à¯...',
+                ),
+                style: TextStyle(color: widget.theme.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
-      backgroundColor: theme.background,
+      backgroundColor: widget.theme.background,
       appBar: AppBar(
         backgroundColor: const Color(0xFF0B1533),
         foregroundColor: Colors.white,
         title: Text(
-          language == 'en'
-              ? 'Find Worker'
-              : language == 'si'
-              ? 'සේවකයා සොයන්න'
-              : 'பணியாளரைத் தேடவும்',
+          _txt(
+            'Find Worker',
+            'à·ƒà·šà·€à¶šà¶ºà· à·ƒà·œà¶ºà¶±à·Šà¶±',
+            'à®ªà®£à®¿à®¯à®¾à®³à®°à¯ˆà®¤à¯ à®¤à¯‡à®Ÿà®µà¯à®®à¯',
+          ),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: onBack,
+          onPressed: widget.onBack,
         ),
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.search, size: 64, color: theme.textSecondary),
-            const SizedBox(height: 16),
-            Text(
-              workerType,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: theme.textPrimary,
-              ),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    ScaleTransition(
+                      scale: Tween<double>(begin: 0.8, end: 1.2).animate(
+                        CurvedAnimation(
+                          parent: _pulseController,
+                          curve: Curves.easeInOut,
+                        ),
+                      ),
+                      child: Opacity(
+                        opacity: Tween<double>(begin: 0.15, end: 0.35).evaluate(
+                          CurvedAnimation(
+                            parent: _pulseController,
+                            curve: Curves.easeInOut,
+                          ),
+                        ),
+                        child: Container(
+                          width: 140,
+                          height: 140,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _colorForCategory(widget.workerType),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _colorForCategory(widget.workerType),
+                      ),
+                      child: Icon(
+                        _iconDataForCategory(widget.workerType),
+                        size: 56,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                Text(
+                  widget.workerType,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: widget.theme.textPrimary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.location_on, size: 16, color: Colors.red[400]),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        widget.userAddress,
+                        style: TextStyle(
+                          color: widget.theme.textSecondary,
+                          fontSize: 14,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                Text(
+                  _txt(
+                    'Searching for workers...',
+                    'à·ƒà·šà·€à¶šà¶ºà¶±à·Š à·ƒà·œà¶ºà¶¸à·’à¶±à·Š...',
+                    'à®¤à¯Šà®´à®¿à®²à®¾à®³à®°à¯à®•à®³à¯ˆà®¤à¯ à®¤à¯‡à®Ÿà¯à®•à®¿à®±à®¤à¯...',
+                  ),
+                  style: TextStyle(
+                    color: widget.theme.textSecondary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _txt(
+                    'Workers in your area will start bidding shortly',
+                    'à¶”à¶¶à¶œà·š à¶´à·Šâ€à¶»à¶¯à·šà·à¶ºà·š à·ƒà·šà·€à¶šà¶ºà·’à¶±à·Š à¶‰à¶šà·Šà¶¸à¶±à·’à¶±à·Š à¶½à¶‚à·ƒà·” à¶­à·à¶¶à·“à¶¸ à¶†à¶»à¶¸à·Šà¶· à¶šà¶»à¶±à·” à¶‡à¶­',
+                    'à®‰à®™à¯à®•à®³à¯ à®ªà®•à¯à®¤à®¿à®¯à®¿à®²à¯ à®‰à®³à¯à®³ à®ªà®£à®¿à®¯à®¾à®³à®°à¯à®•à®³à¯ à®µà®¿à®°à¯ˆà®µà®¿à®²à¯ à®à®²à®®à¯ à®Žà®Ÿà¯à®•à¯à®•à®¤à¯ à®¤à¯Šà®Ÿà®™à¯à®•à¯à®µà®¾à®°à¯à®•à®³à¯',
+                  ),
+                  style: TextStyle(
+                    color: widget.theme.textSecondary,
+                    fontSize: 13,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 40),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _handleCancel,
+                        icon: const Icon(Icons.close),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red[400],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        label: Text(
+                          _txt(
+                            'Cancel',
+                            'à¶…à·€à¶½à¶‚à¶œà·” à¶šà¶»à¶±à·Šà¶±',
+                            'à®°à®¤à¯à®¤à¯ à®šà¯†à®¯à¯',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              userAddress,
-              style: TextStyle(color: theme.textSecondary, fontSize: 14),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              language == 'en'
-                  ? 'Finding available workers...'
-                  : language == 'si'
-                  ? 'ලබා ගත හැකි සේවකයන් සොයමින්...'
-                  : 'கிடைக்கும் தொழிலாளர்களைத் தேடுகிறது...',
-              style: TextStyle(color: theme.textSecondary),
-            ),
-          ],
+          ),
         ),
       ),
     );
