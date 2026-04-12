@@ -2051,12 +2051,12 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final crossAxisCount = constraints.maxWidth >= 900
-              ? 4
-              : constraints.maxWidth >= 560
+              ? 6
+              : constraints.maxWidth >= 380
               ? 4
               : 2;
 
@@ -2064,8 +2064,6 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisCount: crossAxisCount,
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
             children: categories.map((item) {
               final isMore = item.id == 'more';
               final isFeatured = item.featured && crossAxisCount >= 4;
@@ -2522,31 +2520,31 @@ class CategoryBentoCard extends StatelessWidget {
       onTap: onPress,
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(22),
           gradient: gradient,
           boxShadow: [
             BoxShadow(
               color: iconColor.withAlpha(32),
-              blurRadius: featured ? 22 : 14,
-              offset: const Offset(0, 10),
+              blurRadius: featured ? 16 : 10,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
         child: Stack(
           children: [
             Positioned(
-              top: -26,
-              right: -20,
+              top: -22,
+              right: -18,
               child: Container(
-                width: featured ? 130 : 96,
-                height: featured ? 130 : 96,
+                width: featured ? 98 : 76,
+                height: featured ? 98 : 76,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
                       color: iconColor.withAlpha(featured ? 62 : 42),
-                      blurRadius: featured ? 52 : 38,
-                      spreadRadius: featured ? 8 : 2,
+                      blurRadius: featured ? 34 : 24,
+                      spreadRadius: featured ? 4 : 1,
                     ),
                   ],
                 ),
@@ -2555,7 +2553,7 @@ class CategoryBentoCard extends StatelessWidget {
             Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(22),
                   border: Border.all(color: Colors.white.withAlpha(72)),
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -2572,31 +2570,35 @@ class CategoryBentoCard extends StatelessWidget {
             ),
             Padding(
               padding: EdgeInsets.symmetric(
-                horizontal: featured ? 18 : 14,
-                vertical: featured ? 14 : 12,
+                horizontal: featured ? 14 : 12,
+                vertical: featured ? 10 : 10,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: featured ? 46 : 40,
-                    height: featured ? 46 : 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withAlpha(featured ? 66 : 54),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(
-                      _iconData(icon),
-                      size: featured ? 24 : 22,
-                      color: iconColor,
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: Container(
+                        width: featured ? 58 : 52,
+                        height: featured ? 58 : 52,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withAlpha(featured ? 78 : 66),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Icon(
+                          _iconData(icon),
+                          size: featured ? 34 : 30,
+                          color: iconColor,
+                        ),
+                      ),
                     ),
                   ),
-                  const Spacer(),
                   if (featured)
                     Text(
                       'Popular',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 10,
                         letterSpacing: 0.4,
                         fontWeight: FontWeight.w700,
                         color: theme.textPrimary.withAlpha(210),
@@ -2605,7 +2607,7 @@ class CategoryBentoCard extends StatelessWidget {
                   Text(
                     label,
                     style: TextStyle(
-                      fontSize: featured ? 16 : 13,
+                      fontSize: featured ? 14 : 12,
                       color: theme.textPrimary,
                       fontWeight: FontWeight.w700,
                     ),
