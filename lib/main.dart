@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:sevix/l10n/app_localizations.dart';
 import 'package:sevix/features/home/presentation/providers/user_provider.dart';
 import 'settings_screen.dart' as separate;
@@ -2021,47 +2022,82 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCategoryGrid(AppTheme theme, String lang) {
     final categories = [
-      {'id': 'plumber', 'name': 'Plumber', 'icon': 'plumber'},
-      {'id': 'electrician', 'name': 'Electrician', 'icon': 'electrician'},
-      {'id': 'mason', 'name': 'Mason', 'icon': 'mason'},
-      {'id': 'carpenter', 'name': 'Carpenter', 'icon': 'carpenter'},
-      {'id': 'painter', 'name': 'Painter', 'icon': 'painter'},
-      {'id': 'gardener', 'name': 'Gardener', 'icon': 'gardener'},
-      {'id': 'cleaner', 'name': 'Cleaner', 'icon': 'cleaner'},
-      {'id': 'more', 'name': 'More', 'icon': 'more'},
+      const _BentoCategorySpec(
+        id: 'plumber',
+        name: 'Plumber',
+        icon: 'plumber',
+        featured: true,
+      ),
+      const _BentoCategorySpec(
+        id: 'electrician',
+        name: 'Electrician',
+        icon: 'electrician',
+        featured: true,
+      ),
+      const _BentoCategorySpec(id: 'mason', name: 'Mason', icon: 'mason'),
+      const _BentoCategorySpec(
+        id: 'carpenter',
+        name: 'Carpenter',
+        icon: 'carpenter',
+      ),
+      const _BentoCategorySpec(id: 'painter', name: 'Painter', icon: 'painter'),
+      const _BentoCategorySpec(
+        id: 'gardener',
+        name: 'Gardener',
+        icon: 'gardener',
+      ),
+      const _BentoCategorySpec(id: 'cleaner', name: 'Cleaner', icon: 'cleaner'),
+      const _BentoCategorySpec(id: 'more', name: 'More', icon: 'more'),
     ];
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final crossAxisCount = constraints.maxWidth >= 900 ? 5 : 4;
-          return GridView.count(
+          final crossAxisCount = constraints.maxWidth >= 900
+              ? 4
+              : constraints.maxWidth >= 560
+              ? 4
+              : 2;
+
+          return StaggeredGrid.count(
             crossAxisCount: crossAxisCount,
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: 0.75,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             children: categories.map((item) {
-              if (item['id'] == 'more') {
-                return CategoryCircle(
-                  label: lang == 'en'
-                      ? 'More'
-                      : lang == 'si'
-                      ? 'à¶­à·€à¶­à·Š'
-                      : 'à®®à¯‡à®²à¯à®®à¯',
-                  isMore: true,
-                  theme: theme,
-                  onPress: widget.onShowCategories,
+              final isMore = item.id == 'more';
+              final isFeatured = item.featured && crossAxisCount >= 4;
+
+              final card = CategoryBentoCard(
+                label: isMore
+                    ? (lang == 'en'
+                          ? 'More'
+                          : lang == 'si'
+                          ? 'à¶­à·€à¶­à·Š'
+                          : 'à®®à¯‡à®²à¯à®®à¯')
+                    : getCategoryTranslation(item.name, lang),
+                icon: item.icon,
+                theme: theme,
+                featured: isFeatured,
+                onPress: isMore
+                    ? widget.onShowCategories
+                    : () => widget.onSelectCategory(item.id),
+              );
+
+              if (isFeatured) {
+                return StaggeredGridTile.count(
+                  crossAxisCellCount: 2,
+                  mainAxisCellCount: 1,
+                  child: card,
                 );
               }
 
-              return CategoryCircle(
-                label: getCategoryTranslation(item['name']!, lang),
-                icon: item['icon'],
-                theme: theme,
-                onPress: () => widget.onSelectCategory(item['id']!),
+              return StaggeredGridTile.count(
+                crossAxisCellCount: 1,
+                mainAxisCellCount: 1,
+                child: card,
               );
             }).toList(),
           );
@@ -2445,54 +2481,139 @@ class _LocationModalSheetState extends State<_LocationModalSheet> {
 }
 
 // ============================================================
-// CATEGORY CIRCLE
+// CATEGORY BENTO
 // ============================================================
-class CategoryCircle extends StatelessWidget {
+class _BentoCategorySpec {
+  final String id;
+  final String name;
+  final String icon;
+  final bool featured;
+
+  const _BentoCategorySpec({
+    required this.id,
+    required this.name,
+    required this.icon,
+    this.featured = false,
+  });
+}
+
+class CategoryBentoCard extends StatelessWidget {
   final String label;
-  final bool isMore;
-  final String? icon;
+  final String icon;
+  final bool featured;
   final VoidCallback? onPress;
   final AppTheme theme;
 
-  const CategoryCircle({
+  const CategoryBentoCard({
     super.key,
     required this.label,
-    this.isMore = false,
-    this.icon,
+    required this.icon,
+    this.featured = false,
     this.onPress,
     required this.theme,
   });
 
   @override
   Widget build(BuildContext context) {
+    final gradient = _backgroundGradient(icon, featured);
+    final iconColor = _iconColor(icon);
+
     return GestureDetector(
       onTap: onPress,
-      child: SizedBox(
-        width: 72,
-        child: Column(
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: theme.cardBackground,
-                shape: BoxShape.circle,
-              ),
-              child: isMore
-                  ? Icon(Icons.apps, size: 26, color: theme.textSecondary)
-                  : Icon(_iconData(icon), size: 26, color: _iconColor(icon)),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: gradient,
+          boxShadow: [
+            BoxShadow(
+              color: iconColor.withAlpha(32),
+              blurRadius: featured ? 22 : 14,
+              offset: const Offset(0, 10),
             ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: theme.textPrimary,
-                fontWeight: FontWeight.w500,
+          ],
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              top: -26,
+              right: -20,
+              child: Container(
+                width: featured ? 130 : 96,
+                height: featured ? 130 : 96,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: iconColor.withAlpha(featured ? 62 : 42),
+                      blurRadius: featured ? 52 : 38,
+                      spreadRadius: featured ? 8 : 2,
+                    ),
+                  ],
+                ),
               ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.white.withAlpha(72)),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withAlpha(48),
+                      Colors.transparent,
+                      Colors.black.withAlpha(18),
+                    ],
+                    stops: const [0.0, 0.45, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: featured ? 18 : 14,
+                vertical: featured ? 14 : 12,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: featured ? 46 : 40,
+                    height: featured ? 46 : 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(featured ? 66 : 54),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      _iconData(icon),
+                      size: featured ? 24 : 22,
+                      color: iconColor,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (featured)
+                    Text(
+                      'Popular',
+                      style: TextStyle(
+                        fontSize: 11,
+                        letterSpacing: 0.4,
+                        fontWeight: FontWeight.w700,
+                        color: theme.textPrimary.withAlpha(210),
+                      ),
+                    ),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: featured ? 16 : 13,
+                      color: theme.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -2500,8 +2621,10 @@ class CategoryCircle extends StatelessWidget {
     );
   }
 
-  IconData _iconData(String? name) {
+  IconData _iconData(String name) {
     switch (name) {
+      case 'more':
+        return Icons.apps;
       case 'plumber':
         return Icons.water;
       case 'electrician':
@@ -2521,8 +2644,10 @@ class CategoryCircle extends StatelessWidget {
     }
   }
 
-  Color _iconColor(String? name) {
+  Color _iconColor(String name) {
     switch (name) {
+      case 'more':
+        return const Color(0xFF5A667F);
       case 'plumber':
         return const Color(0xFF3498DB);
       case 'electrician':
@@ -2539,6 +2664,69 @@ class CategoryCircle extends StatelessWidget {
         return const Color(0xFF1ABC9C);
       default:
         return const Color(0xFF666666);
+    }
+  }
+
+  Gradient _backgroundGradient(String name, bool isFeatured) {
+    switch (name) {
+      case 'plumber':
+        return LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isFeatured
+              ? const [Color(0xFFE9F5FF), Color(0xFFD8ECFF), Color(0xFFC6E4FF)]
+              : const [Color(0xFFF0F8FF), Color(0xFFDCEEFF)],
+        );
+      case 'electrician':
+        return LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isFeatured
+              ? const [Color(0xFFFFF6E5), Color(0xFFFFEECF), Color(0xFFFFE2A4)]
+              : const [Color(0xFFFFF9EC), Color(0xFFFFEFCC)],
+        );
+      case 'mason':
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFF1EE), Color(0xFFFFDFD8)],
+        );
+      case 'carpenter':
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFF9F1E7), Color(0xFFEED8BE)],
+        );
+      case 'painter':
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFF8F0FF), Color(0xFFEAD9FF)],
+        );
+      case 'gardener':
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFEFFBF2), Color(0xFFD6F2DC)],
+        );
+      case 'cleaner':
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFEAFDFC), Color(0xFFD3F6F2)],
+        );
+      case 'more':
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFF5F6F9), Color(0xFFE8EBF2)],
+        );
+      default:
+        return const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFF3F3F3), Color(0xFFE6E6E6)],
+        );
     }
   }
 }
