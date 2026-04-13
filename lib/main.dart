@@ -1,4 +1,6 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -2759,21 +2761,19 @@ class FindWorkerScreen extends StatefulWidget {
 
 class _FindWorkerScreenState extends State<FindWorkerScreen>
     with TickerProviderStateMixin {
-  late AnimationController _scaleController;
   late AnimationController _pulseController;
-  late Stream<QuerySnapshot> _bidsStream;
+  late Stream<QuerySnapshot<Map<String, dynamic>>> _bidsStream;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _bidsSubscription;
+  Timer? _contextTicker;
+  Map<String, dynamic>? _latestBid;
+  int _contextPhase = 0;
   bool _cancelling = false;
 
   @override
   void initState() {
     super.initState();
-    _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    )..repeat(reverse: true);
-
     _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 2200),
       vsync: this,
     )..repeat();
 
@@ -2783,20 +2783,35 @@ class _FindWorkerScreenState extends State<FindWorkerScreen>
         .doc(widget.jobId)
         .collection('bids')
         .orderBy('createdAt', descending: true)
+        .withConverter<Map<String, dynamic>>(
+          fromFirestore: (snapshot, _) => snapshot.data() ?? {},
+          toFirestore: (value, _) => value,
+        )
         .snapshots();
 
-    // Listen for first bid
-    _bidsStream.listen((snapshot) {
+    // Listen for first bid and show preview card without forcing navigation.
+    _bidsSubscription = _bidsStream.listen((snapshot) {
       if (snapshot.docs.isNotEmpty && mounted) {
-        // Bid received! Navigate to bookings
-        widget.onBidReceived();
+        setState(() {
+          _latestBid = snapshot.docs.first.data();
+        });
       }
+    });
+
+    _contextTicker = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _contextPhase = (_contextPhase + 1) % 4;
+      });
     });
   }
 
   @override
   void dispose() {
-    _scaleController.dispose();
+    _bidsSubscription?.cancel();
+    _contextTicker?.cancel();
     _pulseController.dispose();
     super.dispose();
   }
@@ -2872,6 +2887,333 @@ class _FindWorkerScreenState extends State<FindWorkerScreen>
       default:
         return const Color(0xFF666666);
     }
+  }
+
+  int _estimatedPoolForCategory(String category) {
+    switch (category.toLowerCase()) {
+      case 'plumber':
+        return 18;
+      case 'electrician':
+        return 12;
+      case 'mason':
+        return 10;
+      case 'carpenter':
+        return 11;
+      case 'painter':
+        return 14;
+      case 'gardener':
+        return 9;
+      case 'cleaner':
+        return 16;
+      case 'ac technician':
+        return 8;
+      case 'mechanic':
+        return 7;
+      default:
+        return 10;
+    }
+  }
+
+  String _contextLine() {
+    final category = widget.workerType.trim().isEmpty
+        ? 'workers'
+        : '${widget.workerType}s';
+    final nearbyCount = _estimatedPoolForCategory(widget.workerType);
+
+    switch (_contextPhase) {
+      case 1:
+        return _txt(
+          'Notifying nearby $category now...',
+          'à¶…à·ƒà¶½ à·ƒà·’à¶§à·’à¶± $category à¶¯à·à¶±à·”à¶¸à·Š à¶¯à·šà¶¸à·’à¶±à·Š à·ƒà·’à¶§à·“...',
+          'à®…à®°à¯à®•à®¿à®²à¯à®³à¯à®³ $category à®•à¯à®•à¯ à®‡à®ªà¯à®ªà¯‹à®¤à¯ à®…à®±à®¿à®µà®¿à®•à¯à®•à®¿à®±à¯‹à®®à¯...',
+        );
+      case 2:
+        return _txt(
+          'Comparing ETA and rates from early responders...',
+          'à¶´à·…à¶¸à·” à¶´à·’à·…à·’à¶­à·”à¶»à·”à¶šà¶»à·”à·€à¶±à·Šà¶œà·š à¶šà·à¶½à¶º à·ƒà·„ à¶¸à·’à¶½ à·ƒà·à·ƒà¶³à·“à¶¸à·’à¶±à·Š...',
+          'à®†à®°à®®à¯à®ª à®ªà®¤à®¿à®²à®³à®¿à®ªà¯à®ªà®µà®°à¯à®•à®³à®¿à®©à¯ ETA à®®à®±à¯à®±à¯à®®à¯ à®µà®¿à®²à¯ˆà®¯à¯ˆ à®’à®ªà¯à®ªà®¿à®Ÿà¯à®•à®¿à®±à¯‹à®®à¯...',
+        );
+      case 3:
+        return _txt(
+          'Waiting for the best bid to land in your feed...',
+          'à¶”à¶¶à·š à¶´à·”à·€à¶­à·Š à¶´à·™à·…à·š à·„à·œà¶³à¶¸ à¶½à¶‚à·ƒà·”à·€ à¶½à·à¶¶à·™à¶±à·Šà¶± à¶¶à¶½à·à¶œà·™à¶± à·ƒà·’à¶§à·“...',
+          'à®‰à®™à¯à®•à®³à¯ à®«à¯€à®Ÿà®¿à®²à¯ à®šà®¿à®±à®¨à¯à®¤ à®à®²à®®à¯ à®µà®°à¯à®®à¯ à®µà®°à¯ˆ à®•à®¾à®¤à¯à®¤à®¿à®°à¯à®•à¯à®•à®¿à®±à¯‹à®®à¯...',
+        );
+      default:
+        return _txt(
+          'Checking availability for $nearbyCount+ $category in your area...',
+          'à¶”à¶¶à·š à¶´à·Šâ€à¶»à¶¯à·šà·à¶ºà·š $nearbyCount+ $category à·ƒà¶³à·„à· à¶½à¶¶à· à¶¯à·“à¶¸ à¶´à¶»à·“à¶šà·Šà·‚à· à¶šà¶»à¶¸à·’à¶±à·Š...',
+          'à®‰à®™à¯à®•à®³à¯ à®ªà®•à¯à®¤à®¿à®¯à®¿à®²à¯ $nearbyCount+ $category à®•à®³à®¿à®©à¯ à®•à®¿à®Ÿà¯ˆà®•à¯à®•à¯à®®à¯ à®¨à®¿à®²à¯ˆà®¯à¯ˆ à®šà®°à®¿à®ªà®¾à®°à¯à®•à¯à®•à®¿à®±à¯‹à®®à¯...',
+        );
+    }
+  }
+
+  String _bidWorkerName() {
+    final name = (_latestBid?['workerName'] ?? _latestBid?['name'] ?? '')
+        .toString()
+        .trim();
+    return name.isEmpty
+        ? _txt(
+            'Verified Worker',
+            'à·€à·’à·à·Šà·€à·à·ƒà¶±à·“à¶º à·ƒà·šà·€à¶šà¶ºà·',
+            'à®¨à®®à¯à®ªà®•à®®à®¾à®© à®ªà®£à®¿à®¯à®¾à®³à®°à¯',
+          )
+        : name;
+  }
+
+  String _bidWorkerAvatarLetter() {
+    final name = _bidWorkerName();
+    return name.isEmpty ? 'W' : name.characters.first.toUpperCase();
+  }
+
+  String _bidPriceLabel() {
+    final amount = _latestBid?['amount'] ?? _latestBid?['bidAmount'];
+    if (amount == null) {
+      return _txt(
+        'Price incoming',
+        'à¶¸à·’à¶½ à¶½à·à¶¶à·™à¶¸à·’à¶±à·Š',
+        'à®µà®¿à®²à¯ˆ à®µà®°à¯à®•à®¿à®±à®¤à¯',
+      );
+    }
+    final numeric = amount is num
+        ? amount.toDouble()
+        : double.tryParse(amount.toString());
+    if (numeric == null) {
+      return _txt(
+        'Price incoming',
+        'à¶¸à·’à¶½ à¶½à·à¶¶à·™à¶¸à·’à¶±à·Š',
+        'à®µà®¿à®²à¯ˆ à®µà®°à¯à®•à®¿à®±à®¤à¯',
+      );
+    }
+    return 'LKR ${numeric.toStringAsFixed(0)}';
+  }
+
+  String _bidEtaLabel() {
+    final eta = _latestBid?['etaMinutes'] ?? _latestBid?['eta'];
+    final etaValue = eta is num ? eta.toInt() : int.tryParse('$eta');
+    if (etaValue == null) {
+      return _txt(
+        'ETA shared after accept',
+        'ETA à¶´à·’à·…à·’à¶œà·à¶±à·“à¶¸à·™à¶±à·Š à¶´à·ƒà·”',
+        'ETA à®’à®ªà¯à®ªà¯à®•à¯à®•à¯Šà®£à¯à®Ÿ à®ªà®¿à®±à®•à¯',
+      );
+    }
+    return '$etaValue min';
+  }
+
+  Widget _buildRadarPulse(Color color) {
+    return SizedBox(
+      width: 230,
+      height: 230,
+      child: AnimatedBuilder(
+        animation: _pulseController,
+        builder: (context, _) {
+          Widget ring(double offset, double minScale, double maxScale) {
+            final progress = (_pulseController.value + offset) % 1;
+            final scale = minScale + (maxScale - minScale) * progress;
+            final opacity = (1 - progress).clamp(0.0, 1.0) * 0.4;
+            return Transform.scale(
+              scale: scale,
+              child: Container(
+                width: 88,
+                height: 88,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color.withValues(alpha: opacity),
+                ),
+              ),
+            );
+          }
+
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              ring(0.0, 1.0, 2.8),
+              ring(0.33, 1.0, 2.6),
+              ring(0.66, 1.0, 2.4),
+              Container(
+                width: 94,
+                height: 94,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [color.withValues(alpha: 0.86), color],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.35),
+                      blurRadius: 28,
+                      spreadRadius: 4,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  _iconDataForCategory(widget.workerType),
+                  size: 50,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildBidPreviewCard() {
+    if (_latestBid == null) {
+      return const SizedBox.shrink();
+    }
+
+    final cardColor = widget.theme.cardBackground;
+    final categoryColor = _colorForCategory(widget.workerType);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: categoryColor.withValues(alpha: 0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: categoryColor.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.gavel, color: categoryColor, size: 18),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _txt(
+                      'New bid just landed',
+                      'à¶±à·€ à¶½à¶‚à·ƒà·”à·€à¶šà·Š à¶½à·à¶¶à·”à¶«à·’',
+                      'à®ªà¯à®¤à®¿à®¯ à®à®²à®®à¯ à®µà®¨à¯à®¤à¯à®³à¯à®³à®¤à¯',
+                    ),
+                    style: TextStyle(
+                      color: widget.theme.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 21,
+                  backgroundColor: categoryColor.withValues(alpha: 0.22),
+                  child: Text(
+                    _bidWorkerAvatarLetter(),
+                    style: TextStyle(
+                      color: categoryColor,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _bidWorkerName(),
+                        style: TextStyle(
+                          color: widget.theme.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        _txt(
+                          'Ready to take your ${widget.workerType} job',
+                          'à¶”à¶¶à¶œà·š ${widget.workerType} à¶šà·à¶»à·Šà¶ºà¶º à·ƒà¶³à·„à· à·ƒà·–à¶¯à·à¶±à¶¸à·',
+                          'à®‰à®™à¯à®•à®³à¯ ${widget.workerType} à®µà¯‡à®²à¯ˆà®•à¯à®•à¯ à®¤à®¯à®¾à®°à®¾à®• à®‰à®³à¯à®³à®¾à®°à¯',
+                        ),
+                        style: TextStyle(
+                          color: widget.theme.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _MetricPill(
+                    label: _txt('Bid', 'à¶½à¶‚à·ƒà·”à·€', 'à®à®²à®®à¯'),
+                    value: _bidPriceLabel(),
+                    color: categoryColor,
+                    textPrimary: widget.theme.textPrimary,
+                    textSecondary: widget.theme.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _MetricPill(
+                    label: 'ETA',
+                    value: _bidEtaLabel(),
+                    color: categoryColor,
+                    textPrimary: widget.theme.textPrimary,
+                    textSecondary: widget.theme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: widget.onBidReceived,
+                icon: const Icon(Icons.arrow_forward_rounded),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: categoryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                label: Text(
+                  _txt(
+                    'View bids now',
+                    'à¶½à¶‚à·ƒà·” à¶¯à·à¶± à¶¶à¶½à¶±à·Šà¶±',
+                    'à®à®²à®™à¯à®•à®³à¯ˆ à®‡à®ªà¯à®ªà¯‹à®¤à¯ à®ªà®¾à®°à¯à®•à¯à®•à®µà¯à®®à¯',
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _handleCancel() async {
@@ -3012,138 +3354,162 @@ class _FindWorkerScreenState extends State<FindWorkerScreen>
           onPressed: widget.onBack,
         ),
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    ScaleTransition(
-                      scale: Tween<double>(begin: 0.8, end: 1.2).animate(
-                        CurvedAnimation(
-                          parent: _pulseController,
-                          curve: Curves.easeInOut,
-                        ),
-                      ),
-                      child: Opacity(
-                        opacity: Tween<double>(begin: 0.15, end: 0.35).evaluate(
-                          CurvedAnimation(
-                            parent: _pulseController,
-                            curve: Curves.easeInOut,
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 220),
+              child: Column(
+                children: [
+                  _buildRadarPulse(_colorForCategory(widget.workerType)),
+                  const SizedBox(height: 24),
+                  Text(
+                    widget.workerType,
+                    style: TextStyle(
+                      fontSize: 25,
+                      fontWeight: FontWeight.bold,
+                      color: widget.theme.textPrimary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.location_on, size: 16, color: Colors.red[400]),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          widget.userAddress,
+                          style: TextStyle(
+                            color: widget.theme.textSecondary,
+                            fontSize: 14,
                           ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        child: Container(
-                          width: 140,
-                          height: 140,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _colorForCategory(widget.workerType),
-                          ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 28),
+                  Text(
+                    _txt(
+                      'Scanning live worker network...',
+                      'à·ƒà·šà·€à¶š à¶¢à·à¶½à¶º à·ƒà¶šà·Šà¶»à·“à¶ºà·€ à¶´à¶»à·“à¶šà·Šà·‚à· à¶šà¶»à¶¸à·’à¶±à·Š...',
+                      'à®¨à¯‡à®°à®²à¯ˆ à®ªà®£à®¿à®¯à®¾à®³à®°à¯ à®µà®²à¯ˆà®ªà¯à®ªà®¿à®©à¯ à®¸à¯à®•à¯‡à®©à¯ à®šà¯†à®¯à¯à®•à®¿à®±à¯‹à®®à¯...',
+                    ),
+                    style: TextStyle(
+                      color: widget.theme.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 450),
+                    child: Text(
+                      _contextLine(),
+                      key: ValueKey(_contextPhase),
+                      style: TextStyle(
+                        color: widget.theme.textSecondary,
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _handleCancel,
+                      icon: const Icon(Icons.close),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red[400],
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      label: Text(
+                        _txt(
+                          'Cancel Search',
+                          'à·ƒà·œà¶ºà· à¶¶à·à¶½à·“à¶¸ à¶…à·€à¶½à¶‚à¶œà·” à¶šà¶»à¶±à·Šà¶±',
+                          'à®¤à¯‡à®Ÿà®²à¯ˆ à®°à®¤à¯à®¤à¯ à®šà¯†à®¯à¯à®¯à®µà¯à®®à¯',
                         ),
                       ),
                     ),
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _colorForCategory(widget.workerType),
-                      ),
-                      child: Icon(
-                        _iconDataForCategory(widget.workerType),
-                        size: 56,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 32),
-                Text(
-                  widget.workerType,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: widget.theme.textPrimary,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.location_on, size: 16, color: Colors.red[400]),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        widget.userAddress,
-                        style: TextStyle(
-                          color: widget.theme.textSecondary,
-                          fontSize: 14,
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 32),
-                Text(
-                  _txt(
-                    'Searching for workers...',
-                    'à·ƒà·šà·€à¶šà¶ºà¶±à·Š à·ƒà·œà¶ºà¶¸à·’à¶±à·Š...',
-                    'à®¤à¯Šà®´à®¿à®²à®¾à®³à®°à¯à®•à®³à¯ˆà®¤à¯ à®¤à¯‡à®Ÿà¯à®•à®¿à®±à®¤à¯...',
-                  ),
-                  style: TextStyle(
-                    color: widget.theme.textSecondary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _txt(
-                    'Workers in your area will start bidding shortly',
-                    'à¶”à¶¶à¶œà·š à¶´à·Šâ€à¶»à¶¯à·šà·à¶ºà·š à·ƒà·šà·€à¶šà¶ºà·’à¶±à·Š à¶‰à¶šà·Šà¶¸à¶±à·’à¶±à·Š à¶½à¶‚à·ƒà·” à¶­à·à¶¶à·“à¶¸ à¶†à¶»à¶¸à·Šà¶· à¶šà¶»à¶±à·” à¶‡à¶­',
-                    'à®‰à®™à¯à®•à®³à¯ à®ªà®•à¯à®¤à®¿à®¯à®¿à®²à¯ à®‰à®³à¯à®³ à®ªà®£à®¿à®¯à®¾à®³à®°à¯à®•à®³à¯ à®µà®¿à®°à¯ˆà®µà®¿à®²à¯ à®à®²à®®à¯ à®Žà®Ÿà¯à®•à¯à®•à®¤à¯ à®¤à¯Šà®Ÿà®™à¯à®•à¯à®µà®¾à®°à¯à®•à®³à¯',
-                  ),
-                  style: TextStyle(
-                    color: widget.theme.textSecondary,
-                    fontSize: 13,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 40),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _handleCancel,
-                        icon: const Icon(Icons.close),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red[400],
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        label: Text(
-                          _txt(
-                            'Cancel',
-                            'à¶…à·€à¶½à¶‚à¶œà·” à¶šà¶»à¶±à·Šà¶±',
-                            'à®°à®¤à¯à®¤à¯ à®šà¯†à®¯à¯',
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: AnimatedSlide(
+              duration: const Duration(milliseconds: 420),
+              curve: Curves.easeOutCubic,
+              offset: _latestBid == null ? const Offset(0, 1.2) : Offset.zero,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: _latestBid == null ? 0 : 1,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
+                  child: _buildBidPreviewCard(),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricPill extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  final Color textPrimary;
+  final Color textSecondary;
+
+  const _MetricPill({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.textPrimary,
+    required this.textSecondary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: TextStyle(
+              color: textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
