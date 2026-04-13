@@ -19,6 +19,7 @@ import 'login_screen.dart';
 import 'signup_screen.dart';
 import 'bookings_management_screen.dart';
 import 'chat_screen.dart';
+import 'wallet_dashboard_screen.dart';
 import 'services/biometric_service.dart';
 import 'widgets/app_state_views.dart';
 
@@ -797,6 +798,19 @@ class _AppRootState extends State<AppRoot> {
       );
     }
 
+    if (_activeTab == 'wallet') {
+      return _buildStatefulRoute(
+        screenKey: 'wallet',
+        title: _txt('Wallet', 'වොලට්', 'வாலெட்'),
+        builder: () => _withSelectedLocale(
+          WalletDashboardScreen(
+            language: _selectedLanguage,
+            onBack: () => setState(() => _activeTab = 'home'),
+          ),
+        ),
+      );
+    }
+
     if (_activeTab == 'settings') {
       return _buildStatefulRoute(
         screenKey: 'settings',
@@ -1078,6 +1092,7 @@ class _AppRootState extends State<AppRoot> {
               setState(() => _currentScreen = 'notifications'),
           onSetActiveTab: (tab) => setState(() => _activeTab = tab),
           onGoToChat: () => setState(() => _activeTab = 'chat'),
+          onGoToWallet: () => setState(() => _activeTab = 'wallet'),
           onGoToSettings: () => setState(() => _activeTab = 'settings'),
           onNavigateSearch: (action) {
             switch (action) {
@@ -1089,6 +1104,8 @@ class _AppRootState extends State<AppRoot> {
                 setState(() => _activeTab = 'bookings');
               case 'chat':
                 setState(() => _activeTab = 'chat');
+              case 'wallet':
+                setState(() => _activeTab = 'wallet');
               case 'notifications':
                 setState(() => _currentScreen = 'notifications');
             }
@@ -1117,6 +1134,7 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback onNotificationPress;
   final void Function(String) onSetActiveTab;
   final VoidCallback onGoToChat;
+  final VoidCallback onGoToWallet;
   final VoidCallback onGoToSettings;
   final void Function(String) onNavigateSearch;
 
@@ -1136,6 +1154,7 @@ class HomeScreen extends StatefulWidget {
     required this.onNotificationPress,
     required this.onSetActiveTab,
     required this.onGoToChat,
+    required this.onGoToWallet,
     required this.onGoToSettings,
     required this.onNavigateSearch,
   });
@@ -1217,6 +1236,15 @@ class _HomeScreenState extends State<HomeScreen> {
             ? 'à·ƒà¶‚à·€à·à¶¯'
             : 'à®…à®°à®Ÿà¯à®Ÿà¯ˆ',
         'action': 'chat',
+      },
+      {
+        'id': 'nav-wallet',
+        'label': lang == 'en'
+            ? 'Wallet'
+            : lang == 'si'
+            ? 'වොලට්'
+            : 'வாலெட்',
+        'action': 'wallet',
       },
       {
         'id': 'nav-notifications',
@@ -2181,7 +2209,8 @@ class _HomeScreenState extends State<HomeScreen> {
       'home' => 0,
       'bookings' => 1,
       'chat' => 2,
-      'settings' => 3,
+      'wallet' => 3,
+      'settings' => 4,
       _ => 0,
     };
 
@@ -2195,6 +2224,8 @@ class _HomeScreenState extends State<HomeScreen> {
         } else if (index == 2) {
           widget.onGoToChat();
         } else if (index == 3) {
+          widget.onGoToWallet();
+        } else if (index == 4) {
           widget.onGoToSettings();
         }
       },
@@ -2217,6 +2248,15 @@ class _HomeScreenState extends State<HomeScreen> {
               : lang == 'si'
               ? 'à·ƒà¶‚à·€à·à¶¯'
               : 'à®…à®°à®Ÿà¯à®Ÿà¯ˆ',
+        ),
+        NavigationDestination(
+          icon: const Icon(Icons.account_balance_wallet_outlined),
+          selectedIcon: const Icon(Icons.account_balance_wallet),
+          label: lang == 'en'
+              ? 'Wallet'
+              : lang == 'si'
+              ? 'වොලට්'
+              : 'வாலெட்',
         ),
         NavigationDestination(
           icon: const Icon(Icons.settings_outlined),
