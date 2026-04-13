@@ -1621,6 +1621,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           endIndent: 16,
                         ),
                         _buildBookNowButton(lang),
+                        _buildWalletButton(lang),
                         const SizedBox(height: 32),
                       ],
                     ),
@@ -2138,67 +2139,219 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: widget.onBookNow,
       child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 80, 16, 0),
-        height: 150,
+        margin: const EdgeInsets.fromLTRB(16, 28, 16, 0),
+        height: 164,
         decoration: BoxDecoration(
-          color: const Color(0xFF0B1533),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF07122D), Color(0xFF0B1533), Color(0xFF1E4A8D)],
+            stops: [0.0, 0.6, 1.0],
+          ),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
             BoxShadow(
-              color: Colors.black26,
-              blurRadius: 8,
-              offset: Offset(0, 4),
+              color: const Color(0xFF07122D).withValues(alpha: 0.35),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
-        padding: const EdgeInsets.fromLTRB(25, 50, 25, 25),
-        child: Row(
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
+        child: Stack(
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    lang == 'en'
-                        ? 'Need a Worker Now?'
-                        : lang == 'si'
-                        ? 'à¶¯à·à¶±à·Š à·ƒà·šà·€à¶šà¶ºà·™à¶šà·” à¶…à·€à·à·Šâ€à¶ºà¶¯?'
-                        : 'à®‡à®ªà¯à®ªà¯‹à®¤à¯ à®ªà®£à®¿à®¯à®¾à®³à®°à¯ à®¤à¯‡à®µà¯ˆà®¯à®¾?',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+            Positioned(
+              right: -22,
+              top: -12,
+              child: Container(
+                width: 104,
+                height: 104,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            Positioned(
+              left: -18,
+              bottom: -34,
+              child: Container(
+                width: 116,
+                height: 116,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF58A6FF).withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          lang == 'en'
+                              ? 'Priority Booking'
+                              : lang == 'si'
+                              ? 'ප්‍රමුඛ වෙන්කිරීම'
+                              : 'முன்னுரிமை முன்பதிவு',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        lang == 'en'
+                            ? 'Need a Worker Now?'
+                            : lang == 'si'
+                            ? 'දැන් සේවකයෙක් අවශ්‍යද?'
+                            : 'இப்போது பணியாளர் தேவையா?',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        lang == 'en'
+                            ? 'Tap once and get live worker responses'
+                            : lang == 'si'
+                            ? 'එක් වරක් තට්ටු කර සජීව සේවක ප්‍රතිචාර ලබාගන්න'
+                            : 'ஒருமுறை தட்டி நேரடி தொழிலாளர் பதில்களை பெறுங்கள்',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white.withValues(alpha: 0.86),
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.22),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    lang == 'en'
-                        ? 'Get instant booking for your service'
-                        : lang == 'si'
-                        ? 'à¶”à¶¶à·š à·ƒà·šà·€à·à·€ à·ƒà¶³à·„à· à¶šà·Šà·‚à¶«à·’à¶š à·€à·™à¶±à·Šà¶šà·’à¶»à·“à¶¸à¶šà·Š'
-                        : 'à®‰à®™à¯à®•à®³à¯ à®šà¯‡à®µà¯ˆà®•à¯à®•à¯ à®‰à®Ÿà®©à®Ÿà®¿ à®®à¯à®©à¯à®ªà®¤à®¿à®µà¯',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white.withAlpha(204),
+                  child: const Icon(
+                    Icons.electric_bolt_rounded,
+                    size: 30,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWalletButton(String lang) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onGoToWallet,
+          borderRadius: BorderRadius.circular(18),
+          child: Ink(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF0F1F47),
+                  Color(0xFF173A7A),
+                  Color(0xFF2A63BE),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0F1F47).withValues(alpha: 0.24),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(12),
                     ),
+                    child: const Icon(
+                      Icons.account_balance_wallet_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          lang == 'en'
+                              ? 'Wallet Dashboard'
+                              : lang == 'si'
+                              ? 'වොලට් ඩෑෂ්බෝඩ්'
+                              : 'வாலெட் டாஷ்போர்ட்',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                          ),
+                        ),
+                        Text(
+                          lang == 'en'
+                              ? 'Balance, escrow and transactions'
+                              : lang == 'si'
+                              ? 'ශේෂය, එස්ක්රෝ සහ ගනුදෙනු'
+                              : 'இருப்பு, எஸ்க்ரோ மற்றும் பரிவர்த்தனைகள்',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.84),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Colors.white,
+                    size: 20,
                   ),
                 ],
               ),
             ),
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(38),
-                borderRadius: BorderRadius.circular(28),
-              ),
-              child: const Icon(
-                Icons.calendar_today,
-                size: 28,
-                color: Colors.white,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -2209,8 +2362,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'home' => 0,
       'bookings' => 1,
       'chat' => 2,
-      'wallet' => 3,
-      'settings' => 4,
+      'settings' => 3,
       _ => 0,
     };
 
@@ -2224,8 +2376,6 @@ class _HomeScreenState extends State<HomeScreen> {
         } else if (index == 2) {
           widget.onGoToChat();
         } else if (index == 3) {
-          widget.onGoToWallet();
-        } else if (index == 4) {
           widget.onGoToSettings();
         }
       },
@@ -2248,15 +2398,6 @@ class _HomeScreenState extends State<HomeScreen> {
               : lang == 'si'
               ? 'à·ƒà¶‚à·€à·à¶¯'
               : 'à®…à®°à®Ÿà¯à®Ÿà¯ˆ',
-        ),
-        NavigationDestination(
-          icon: const Icon(Icons.account_balance_wallet_outlined),
-          selectedIcon: const Icon(Icons.account_balance_wallet),
-          label: lang == 'en'
-              ? 'Wallet'
-              : lang == 'si'
-              ? 'වොලට්'
-              : 'வாலெட்',
         ),
         NavigationDestination(
           icon: const Icon(Icons.settings_outlined),
