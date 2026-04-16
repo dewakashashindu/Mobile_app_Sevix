@@ -1190,7 +1190,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return '';
     }
     final a = widget.addresses[widget.selectedAddressIndex];
-    return a.label != null ? '${a.label} \u2022 ${a.address}' : a.address;
+    return a.label != null ? '${a.label} â€¢ ${a.address}' : a.address;
   }
 
   List<Map<String, String>> get _searchResults {
@@ -1644,14 +1644,6 @@ class _HomeScreenState extends State<HomeScreen> {
   ) {
     final String userName = user?.name ?? 'User';
     final int unreadCount = user?.unreadNotifications ?? 0;
-    final String userInitials = userName
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((part) => part.isNotEmpty)
-        .map((part) => part[0])
-        .take(2)
-        .join()
-        .toUpperCase();
 
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
@@ -1732,50 +1724,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   ),
-                  Hero(
-                    tag: 'sevix-profile-hero',
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(18),
-                        onTap: widget.onGoToSettings,
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [Color(0xFF9FD3FF), Color(0xFF0B1533)],
-                            ),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.28),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.14),
-                                blurRadius: 12,
-                                offset: const Offset(0, 5),
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Text(
-                              userInitials.isEmpty ? 'S' : userInitials,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.4,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.12),
