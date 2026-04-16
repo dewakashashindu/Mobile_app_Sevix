@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 typedef LanguageCode = String;
 typedef ThemeModeCode = String;
@@ -36,6 +39,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController _feedbackController = TextEditingController();
   final TextEditingController _nameController = TextEditingController(
     text: 'Jehan',
@@ -55,6 +59,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   late Map<String, bool> _notificationSettings;
   late bool _biometricEnabled;
+  bool _biometricBusy = false;
+  String _appVersion = '1.0.0';
 
   static const _notificationTypeOrder = [
     'newBids',
@@ -68,6 +74,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     _notificationSettings = Map<String, bool>.from(widget.notificationSettings);
     _biometricEnabled = widget.biometricEnabled;
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _appVersion = packageInfo.version;
+      });
+    } catch (_) {
+      // Keep the fallback version when platform metadata is unavailable.
+    }
   }
 
   @override
@@ -128,6 +149,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return ta;
       default:
         return en;
+    }
+  }
+
+  String _formatBullet(String left, String right) {
+    return '$left \u2022 $right';
+  }
+
+  String _initials(String value) {
+    final parts = value.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty) {
+      return 'S';
+    }
+    final first = parts.first.isNotEmpty ? parts.first[0] : 'S';
+    final second = parts.length > 1 && parts[1].isNotEmpty ? parts[1][0] : '';
+    return (first + second).toUpperCase();
+  }
+
+  Future<void> _pickProfileImage() async {
+    try {
+      await _imagePicker.pickImage(source: ImageSource.gallery);
+      if (!mounted) {
+        return;
+      }
+      _toast(
+        _txt(
+          'Profile photo selection opened.',
+          'පැතිකඩ ඡායාරූපය තේරීම විවෘත කරන ලදී.',
+          'சுயவிவரப் புகைப்படத் தேர்வு திறக்கப்பட்டது.',
+        ),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      _toast(
+        _txt(
+          'Unable to open image picker.',
+          'රූප තෝරනය විවෘත කළ නොහැකි විය.',
+          'படத் தேர்வியைத் திறக்க முடியவில்லை.',
+        ),
+      );
     }
   }
 
@@ -314,6 +376,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Center(
+                  child: Hero(
+                    tag: 'sevix-profile-hero',
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        CircleAvatar(
+                          radius: 34,
+                          backgroundColor: const Color(0xFF0B1533),
+                          child: Text(
+                            _initials(_nameController.text),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: -2,
+                          bottom: -2,
+                          child: Material(
+                            color: Colors.white,
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: _pickProfileImage,
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: _theme.primary,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.edit,
+                                  size: 14,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 _sheetTitle(
                   _txt(
                     'Edit Profile',
@@ -638,11 +753,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       decoration: BoxDecoration(
         color: _theme.cardBackground,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _theme.border.withValues(alpha: 0.75)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withValues(alpha: _isDark ? 0.26 : 0.10),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -654,8 +770,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: _theme.divider,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: icon == Icons.person
+                        ? [const Color(0xFF9FD3FF), const Color(0xFF0B1533)]
+                        : icon == Icons.tune
+                        ? [const Color(0xFFFFE3A6), const Color(0xFFF39C12)]
+                        : icon == Icons.notifications
+                        ? [const Color(0xFFE2E8F0), const Color(0xFF94A3B8)]
+                        : [
+                            _theme.divider.withValues(alpha: 0.92),
+                            _theme.divider.withValues(alpha: 0.72),
+                          ],
+                  ),
                   borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _theme.border.withValues(alpha: 0.8),
+                  ),
                 ),
                 child: Icon(icon, size: 18, color: _theme.textPrimary),
               ),
@@ -665,6 +797,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
+                  letterSpacing: -0.35,
                   color: _theme.textPrimary,
                 ),
               ),
@@ -680,6 +813,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _settingTile({
     required IconData icon,
     Color? iconColor,
+    Gradient? iconGradient,
     required String label,
     String? value,
     VoidCallback? onTap,
@@ -687,7 +821,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
+      onTap: onTap == null
+          ? null
+          : () {
+              HapticFeedback.selectionClick();
+              onTap();
+            },
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Row(
@@ -696,8 +835,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: _theme.divider,
+                gradient: iconGradient,
+                color: iconGradient == null ? _theme.divider : null,
                 borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _theme.border.withValues(alpha: 0.85),
+                ),
               ),
               child: Icon(icon, color: iconColor ?? _theme.textPrimary),
             ),
@@ -709,8 +852,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Text(
                     label,
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 15.5,
                       fontWeight: FontWeight.w600,
+                      letterSpacing: -0.4,
                       color: _theme.textPrimary,
                     ),
                   ),
@@ -775,6 +919,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
                         color: _theme.textPrimary,
                       ),
                       textAlign: TextAlign.center,
@@ -788,12 +933,118 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: _isDark
+                            ? [const Color(0xFF1E1E1E), const Color(0xFF151A2C)]
+                            : [
+                                const Color(0xFFFFFFFF),
+                                const Color(0xFFF2F6FC),
+                              ],
+                      ),
+                      border: Border.all(
+                        color: _theme.border.withValues(alpha: 0.72),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(
+                            alpha: _isDark ? 0.24 : 0.08,
+                          ),
+                          blurRadius: 24,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Hero(
+                          tag: 'sevix-profile-hero',
+                          child: CircleAvatar(
+                            radius: 28,
+                            backgroundColor: const Color(0xFF0B1533),
+                            child: Text(
+                              _initials(_nameController.text),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _nameController.text,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.5,
+                                  color: _theme.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                _formatBullet(
+                                  _emailController.text,
+                                  _phoneController.text,
+                                ),
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  letterSpacing: -0.1,
+                                  color: _theme.textSecondary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _theme.primary.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: _theme.primary.withValues(alpha: 0.18),
+                            ),
+                          ),
+                          child: Text(
+                            _txt('Pro', 'ප්‍රෝ', 'ப்ரோ'),
+                            style: TextStyle(
+                              color: _theme.primary,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   _card(
                     title: _txt('Account', 'ගිණුම', 'கணக்கு'),
                     icon: Icons.person,
                     children: [
                       _settingTile(
                         icon: Icons.edit_outlined,
+                        iconGradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF78A9FF), Color(0xFF0B1533)],
+                        ),
                         label: _txt(
                           'Edit Profile',
                           'පැතිකඩ සංස්කරණය',
@@ -807,6 +1058,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _settingTile(
                         icon: Icons.lock_outline,
                         iconColor: const Color(0xFFE74C3C),
+                        iconGradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFFFFC46B), Color(0xFFE57A22)],
+                        ),
                         label: _txt(
                           'Reset Password',
                           'මුරපදය නැවත සකසන්න',
@@ -823,6 +1079,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _settingTile(
                         icon: Icons.fingerprint,
                         iconColor: const Color(0xFF27AE60),
+                        iconGradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF9AE6B4), Color(0xFF27AE60)],
+                        ),
                         label: _txt(
                           'Biometric Login',
                           'ජෛව සත්‍යාපන පිවිසුම',
@@ -833,21 +1094,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           'Face ID / ඇඟිලි සලකුණු භාවිතා කරන්න',
                           'Face ID / விரல் ரேகையை பயன்படுத்தவும்',
                         ),
-                        trailing: Switch(
-                          value: _biometricEnabled,
-                          onChanged: (value) async {
-                            setState(() => _biometricEnabled = value);
-                            final success = await widget.onBiometricToggle(
-                              value,
-                            );
-                            if (!mounted) {
-                              return;
-                            }
-                            if (!success) {
-                              setState(() => _biometricEnabled = !value);
-                            }
-                          },
-                        ),
+                        trailing: _biometricBusy
+                            ? SizedBox(
+                                width: 34,
+                                height: 34,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(7),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      _theme.primary,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : Switch(
+                                value: _biometricEnabled,
+                                onChanged: (value) async {
+                                  setState(() {
+                                    _biometricBusy = true;
+                                    _biometricEnabled = value;
+                                  });
+                                  final success = await widget
+                                      .onBiometricToggle(value);
+                                  if (!mounted) {
+                                    return;
+                                  }
+                                  setState(() {
+                                    _biometricBusy = false;
+                                    if (!success) {
+                                      _biometricEnabled = !value;
+                                    }
+                                  });
+                                },
+                              ),
                       ),
                     ],
                   ),
@@ -857,7 +1137,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       _settingTile(
                         icon: Icons.language,
-                        iconColor: const Color(0xFF3498DB),
+                        iconGradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF9FD3FF), Color(0xFF3498DB)],
+                        ),
                         label: _txt('Language', 'භාෂාව', 'மொழி'),
                         value: selectedLanguage.nativeName,
                         onTap: _openLanguagePicker,
@@ -865,7 +1149,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _divider(),
                       _settingTile(
                         icon: _isDark ? Icons.nightlight_round : Icons.sunny,
-                        iconColor: const Color(0xFFF39C12),
+                        iconGradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFFFFE3A6), Color(0xFFF39C12)],
+                        ),
                         label: _txt('Theme', 'තේමාව', 'தீம்'),
                         value: selectedTheme.name,
                         onTap: _openThemePicker,
@@ -884,6 +1172,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         final key = _notificationTypeOrder[index ~/ 2];
                         return _settingTile(
                           icon: _notificationTypeIcon(key),
+                          iconGradient: key == 'newBids'
+                              ? const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFF9BB7FF),
+                                    Color(0xFF4A85D8),
+                                  ],
+                                )
+                              : key == 'workerAccepted'
+                              ? const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFFC1F0D0),
+                                    Color(0xFF27AE60),
+                                  ],
+                                )
+                              : key == 'jobUpdates'
+                              ? const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFFFFE0B1),
+                                    Color(0xFFF39C12),
+                                  ],
+                                )
+                              : const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFFE2E8F0),
+                                    Color(0xFF94A3B8),
+                                  ],
+                                ),
                           label: _notificationTypeLabel(key),
                           trailing: Switch(
                             value: _notificationSettings[key] ?? true,
@@ -907,12 +1230,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.w800,
+                                letterSpacing: -0.8,
                                 color: _theme.textPrimary,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${_txt('Version', 'අනුවාදය', 'பதிப்பு')} 1.0.0',
+                              '${_txt('Version', 'අනුවාදය', 'பதிப்பு')} $_appVersion',
                               style: TextStyle(color: _theme.textSecondary),
                             ),
                             const SizedBox(height: 8),
