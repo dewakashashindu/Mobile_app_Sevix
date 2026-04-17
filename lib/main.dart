@@ -126,23 +126,19 @@ class AppTheme {
   );
 
   static const dark = AppTheme(
-    // Use a deep blue-black for background, with a hint of gradient in UI widgets
-    background: Color(0xFF10182A),
-    // Cards: dark blue with a subtle purple/blue gradient overlay
-    cardBackground: Color(0xFF232B45),
-    textPrimary: Color(0xFFE6F0FF),
-    textSecondary: Color(0xFFB0B8C1),
-    border: Color(0xFF2D3750),
-    divider: Color(0xFF22304A),
-    // Vibrant blue accent
-    primary: Color(0xFF5B8CFF),
-    tabBarBackground: Color(0xFF1A2238),
-    tabBarActive: Color(0xFF5B8CFF),
-    tabBarInactive: Color(0xFF6C7A93),
-    // Inputs: slightly lighter for contrast
-    inputBackground: Color(0xFF232B45),
-    inputBorder: Color(0xFF3A4663),
-    inputPlaceholder: Color(0xFF7A8CB3),
+    background: Color(0xFF121212),
+    cardBackground: Color(0xFF1E1E1E),
+    textPrimary: Colors.white,
+    textSecondary: Color(0xFFAAAAAA),
+    border: Color(0xFF333333),
+    divider: Color(0xFF2A2A2A),
+    primary: Color(0xFF4A90E2),
+    tabBarBackground: Color(0xFF1E1E1E),
+    tabBarActive: Color(0xFF4A90E2),
+    tabBarInactive: Color(0xFF666666),
+    inputBackground: Color(0xFF2A2A2A),
+    inputBorder: Color(0xFF444444),
+    inputPlaceholder: Color(0xFF666666),
   );
 }
 
