@@ -67,9 +67,20 @@ class SevixApp extends StatelessWidget {
       ],
       supportedLocales: AppLocalizations.supportedLocales,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0B1533)),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF0B1533),
+          brightness: Brightness.light,
+        ),
         useMaterial3: true,
       ),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF0B1533),
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+      themeMode: ThemeMode.system, // Use system theme (light/dark)
       home: const AppRoot(),
     );
   }
