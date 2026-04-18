@@ -1080,8 +1080,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           'ඔබේ ගිණුමෙන් ඉවත් වන්න',
                           'உங்கள் கணக்கிலிருந்து வெளியேறவும்',
                         ),
-                        onTap: widget.onLogout,
+                        onTap: _confirmLogout,
                       ),
+                        Future<void> _confirmLogout() async {
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: Text(_txt('Log out?', 'ඉවත් වන්නද?', 'வெளியேறவா?')),
+                              content: Text(_txt(
+                                'Are you sure you want to log out?',
+                                'ඔබට ඉවත් වීමට අවශ්‍යද?',
+                                'நீங்கள் வெளியேற விரும்புகிறீர்களா?',
+                              )),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  child: Text(_txt('No', 'නැහැ', 'இல்லை')),
+                                ),
+                                FilledButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: Text(_txt('Yes', 'ඔව්', 'ஆம்')),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirmed == true) {
+                            widget.onLogout();
+                          }
+                        }
                       _divider(),
                       _settingTile(
                         icon: Icons.delete_outline,
