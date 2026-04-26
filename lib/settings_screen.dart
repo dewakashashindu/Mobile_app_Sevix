@@ -1082,6 +1082,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         onTap: _confirmLogout,
                       ),
+                      _divider(),
                         Future<void> _confirmLogout() async {
                           final confirmed = await showDialog<bool>(
                             context: context,
@@ -1108,7 +1109,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             widget.onLogout();
                           }
                         }
-                      _divider(),
                       _settingTile(
                         icon: Icons.delete_outline,
                         iconColor: const Color(0xFFE74C3C),
