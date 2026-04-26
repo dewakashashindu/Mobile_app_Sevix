@@ -36,6 +36,35 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(_txt('Log out?', 'ඉවත් වන්නද?', 'வெளியேறவா?')),
+        content: Text(
+          _txt(
+            'Are you sure you want to log out?',
+            'ඔබට ඉවත් වීමට අවශ්‍යද?',
+            'நீங்கள் வெளியேற விரும்புகிறீர்களா?',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(_txt('No', 'නැහැ', 'இல்லை')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(_txt('Yes', 'ඔව්', 'ஆம்')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      widget.onLogout();
+    }
+  }
+
   final TextEditingController _feedbackController = TextEditingController();
   final TextEditingController _nameController = TextEditingController(
     text: 'Jehan',
@@ -1083,32 +1112,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onTap: _confirmLogout,
                       ),
                       _divider(),
-                        Future<void> _confirmLogout() async {
-                          final confirmed = await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: Text(_txt('Log out?', 'ඉවත් වන්නද?', 'வெளியேறவா?')),
-                              content: Text(_txt(
-                                'Are you sure you want to log out?',
-                                'ඔබට ඉවත් වීමට අවශ්‍යද?',
-                                'நீங்கள் வெளியேற விரும்புகிறீர்களா?',
-                              )),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
-                                  child: Text(_txt('No', 'නැහැ', 'இல்லை')),
-                                ),
-                                FilledButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: Text(_txt('Yes', 'ඔව්', 'ஆம்')),
-                                ),
-                              ],
-                            ),
-                          );
-                          if (confirmed == true) {
-                            widget.onLogout();
-                          }
-                        }
                       _settingTile(
                         icon: Icons.delete_outline,
                         iconColor: const Color(0xFFE74C3C),
